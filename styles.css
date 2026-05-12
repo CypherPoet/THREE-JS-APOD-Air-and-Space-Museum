@@ -938,60 +938,32 @@ kbd {
 }
 
 /* =================================================================
-   Buy Me a Coffee — small floating button (top-center)
+   In-world easter-egg hint (shown when the reticle is on the mug)
    ================================================================= */
-.coffee {
+.world-hint {
   position: fixed;
-  top: 16px;
   left: 50%;
+  top: calc(50% + 30px);
   transform: translateX(-50%);
-  z-index: 55; /* above boot (50) and HUD (20), below reader/dial/toast */
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px 8px 12px;
+  z-index: 22;
+  pointer-events: none;
+  padding: 8px 14px;
   background: rgba(4, 6, 13, 0.6);
-  border: 1px solid rgba(245, 239, 226, 0.25);
+  border: 1px solid rgba(232, 116, 59, 0.6);
   color: var(--vellum);
   font-family: var(--mono);
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
-  text-decoration: none;
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
-  transition: all 240ms ease;
-  max-width: 44px;
-  overflow: hidden;
+  opacity: 0;
+  transition: opacity 200ms ease;
   white-space: nowrap;
 }
-.coffee:hover {
-  max-width: 340px;
-  border-color: var(--amber);
-  color: var(--amber);
-  background: rgba(232, 116, 59, 0.12);
-  text-decoration: none;
-}
-.coffee__icon {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.coffee:hover .coffee__icon {
-  transform: rotate(-6deg);
-  color: var(--amber);
-}
-.coffee__label {
-  opacity: 0;
-  transform: translateX(-6px);
-  transition: opacity 220ms ease 80ms, transform 280ms cubic-bezier(0.22, 1, 0.36, 1) 80ms;
-}
-.coffee:hover .coffee__label {
-  opacity: 1;
-  transform: none;
-}
+.world-hint.is-on { opacity: 1; }
+.world-hint kbd { border-color: var(--amber); color: var(--amber); margin-right: 4px; }
 
 /* =================================================================
    Responsive

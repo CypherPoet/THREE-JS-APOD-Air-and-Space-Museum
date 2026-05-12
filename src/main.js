@@ -2,11 +2,14 @@
 // Entry point: APOD JSON + Three.js + controls + UI + radio
 // =================================================================
 
+import * as THREE from "three";
 import { buildGallery, loadApodTexture } from "./scene.js";
 import { attachControls } from "./controls.js";
 import { createUI } from "./ui.js";
 import { fetchApod } from "./apod.js";
 import { createRadio, STATIONS } from "./audio.js";
+
+const BMC_URL = "https://buymeacoffee.com/cypherpoet";
 
 const ui = createUI();
 const canvas = document.getElementById("stage");
@@ -95,11 +98,43 @@ ui.onEnter(() => {
   if (!controls.isMobile) setTimeout(() => controls.tryLock(), 300);
 });
 
+// ---------- Easter-egg raycast: looking at the mug ----------
+const worldHint = document.getElementById("world-hint");
+const raycaster = new THREE.Raycaster();
+const screenCenter = new THREE.Vector2(0, 0);
+const MUG_RANGE = 3.5; // metres — must walk close to interact
+let lookingAtMug = false;
+
+function updateMugFocus() {
+  raycaster.setFromCamera(screenCenter, gallery.camera);
+  const hits = raycaster.intersectObject(gallery.mug.hitObject, false);
+  const isHit = hits.length > 0 && hits[0].distance <= MUG_RANGE;
+  if (isHit !== lookingAtMug) {
+    lookingAtMug = isHit;
+    gallery.mug.setHover(isHit);
+    worldHint.hidden = !isHit;
+    worldHint.classList.toggle("is-on", isHit);
+  }
+}
+
+// Click anywhere while the mug is focused → open BMC.
+// (We ignore the very first click since it's used to engage pointer lock.)
+window.addEventListener("click", () => {
+  if (lookingAtMug) {
+    window.open(BMC_URL, "_blank", "noopener");
+  }
+});
+
+// Expose a minimal debug handle for headless screenshotting.
+// Reading this is harmless; writing to it has no real effect on game state.
+window.__museum = { camera: gallery.camera, mug: gallery.mug };
+
 function tick() {
   controls.update();
   gallery.update();
+  updateMugFocus();
 
-  const near = controls.isNearExhibit() && !ui.isReaderOpen() && !ui.isDialOpen();
+  const near = controls.isNearExhibit() && !ui.isReaderOpen() && !ui.isDialOpen() && !lookingAtMug;
   if (near !== promptVisible) {
     promptVisible = near;
     ui.showInteractPrompt(near);

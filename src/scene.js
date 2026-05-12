@@ -68,6 +68,16 @@ export function buildGallery(canvas) {
   const exhibit = buildExhibit();
   scene.add(exhibit.group);
 
+  // ---------- EASTER EGG: coffee mug on the plinth ----------
+  const mug = buildCoffeeMug();
+  // Plinth top is at y=1.07. Place the mug on the front-right edge
+  // (closest to the user's entry point at z=+9) and scale it 1.5× so
+  // it reads at a distance.
+  mug.group.position.set(0.78, 1.07, 0.95);
+  mug.group.rotation.y = -0.35;
+  mug.group.scale.setScalar(1.5);
+  scene.add(mug.group);
+
   // ---------- DUST ----------
   const dust = buildDust();
   scene.add(dust.points);
@@ -123,6 +133,9 @@ export function buildGallery(canvas) {
     // Subtle hovering motion on the exhibit frame
     exhibit.update(elapsed);
 
+    // Mug hover-glow lerp + tiny idle bob
+    mug.update(elapsed);
+
     // Pulse the amber rim light gently
     amberRim.intensity = 1.2 + Math.sin(elapsed * 0.6) * 0.18;
 
@@ -135,6 +148,7 @@ export function buildGallery(canvas) {
     camera,
     update,
     exhibit, // { setApod(texture), getInteractAnchor() }
+    mug,     // { group, hitObject, setHover(bool) }
     gallery: GALLERY,
   };
 }
@@ -644,6 +658,112 @@ function makeDustSprite() {
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
+}
+
+// =================================================================
+// COFFEE MUG — easter-egg interactable on the plinth
+// =================================================================
+function buildCoffeeMug() {
+  const group = new THREE.Group();
+
+  // Ceramic material — pale vellum, slightly creamy. Always carries a
+  // faint amber emissive so the easter-egg is findable from a few metres.
+  const ceramic = new THREE.MeshStandardMaterial({
+    color: 0xf2ead7,
+    roughness: 0.45,
+    metalness: 0.03,
+    emissive: 0xe8743b,
+    emissiveIntensity: 0.18,
+  });
+
+  // Lathe profile for the mug body (revolved around the Y axis).
+  // Units are in meters: ~13cm tall × 8cm wide.
+  const profile = [
+    new THREE.Vector2(0.000, 0.000),
+    new THREE.Vector2(0.038, 0.000),
+    new THREE.Vector2(0.040, 0.005),
+    new THREE.Vector2(0.040, 0.015),
+    new THREE.Vector2(0.044, 0.020),
+    new THREE.Vector2(0.046, 0.050),
+    new THREE.Vector2(0.046, 0.110),
+    new THREE.Vector2(0.044, 0.124),
+    new THREE.Vector2(0.044, 0.130), // top outer rim
+    new THREE.Vector2(0.039, 0.130), // top inner rim
+    new THREE.Vector2(0.039, 0.122),
+    new THREE.Vector2(0.040, 0.040), // inner wall
+    new THREE.Vector2(0.038, 0.030), // inner base
+    new THREE.Vector2(0.000, 0.030),
+  ];
+  const bodyGeo = new THREE.LatheGeometry(profile, 32);
+  const body = new THREE.Mesh(bodyGeo, ceramic);
+  group.add(body);
+
+  // Coffee surface — a dark disc set just below the rim
+  const coffeeMat = new THREE.MeshStandardMaterial({
+    color: 0x261509,
+    roughness: 0.25,
+    metalness: 0.1,
+    emissive: 0x000000,
+  });
+  const coffee = new THREE.Mesh(
+    new THREE.CircleGeometry(0.037, 32),
+    coffeeMat,
+  );
+  coffee.rotation.x = -Math.PI / 2;
+  coffee.position.y = 0.120;
+  group.add(coffee);
+
+  // Handle — partial torus, oriented so its opening faces outward
+  const handleGeo = new THREE.TorusGeometry(0.028, 0.009, 12, 24, Math.PI * 1.1);
+  const handle = new THREE.Mesh(handleGeo, ceramic);
+  handle.position.set(0.045, 0.075, 0);
+  handle.rotation.z = -Math.PI / 2;
+  handle.rotation.y = Math.PI / 2;
+  group.add(handle);
+
+  // Hit target — a slightly-inflated invisible cylinder for forgiving
+  // raycasts; lets the user pick the mug from a generous distance.
+  const hitGeo = new THREE.CylinderGeometry(0.075, 0.06, 0.17, 12);
+  const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+  const hitObject = new THREE.Mesh(hitGeo, hitMat);
+  hitObject.position.y = 0.085;
+  hitObject.userData.isCoffeeMug = true;
+  group.add(hitObject);
+
+  // Idle and hover bookkeeping — rotation base is set by the caller.
+  let hoverTarget = 0;
+  let hoverNow = 0;
+  let baseRotY = 0;
+  let baseCaptured = false;
+  const inner = new THREE.Group();
+  // Re-parent visuals under an inner group so we can rotate it
+  // independently of the user-set group orientation.
+  inner.add(body);
+  inner.add(coffee);
+  inner.add(handle);
+  group.add(inner);
+
+  function setHover(on) {
+    hoverTarget = on ? 1 : 0;
+  }
+
+  function update(t) {
+    if (!baseCaptured) {
+      baseRotY = group.rotation.y;
+      baseCaptured = true;
+    }
+    hoverNow += (hoverTarget - hoverNow) * 0.12;
+    // Idle glow + boost when hovered
+    ceramic.emissiveIntensity = 0.18 + hoverNow * 0.55;
+    coffeeMat.emissive.setHex(hoverNow > 0.5 ? 0x3a1a08 : 0x000000);
+    // Idle bob is applied to the inner group so the parent's rotation
+    // (the placement angle) stays untouched.
+    inner.rotation.y = Math.sin(t * 0.4) * 0.02 + hoverNow * 0.18;
+    const scale = 1 + hoverNow * 0.08;
+    inner.scale.setScalar(scale);
+  }
+
+  return { group, hitObject, setHover, update };
 }
 
 // =================================================================
