@@ -68,6 +68,10 @@ export function buildGallery(canvas) {
   const exhibit = buildExhibit();
   scene.add(exhibit.group);
 
+  // ---------- PLINTH BASE DOTS ----------
+  const plinthDots = buildPlinthDots();
+  scene.add(plinthDots);
+
   // ---------- EASTER EGG: coffee mug on the plinth ----------
   const mug = buildCoffeeMug();
   // Plinth top is at y=1.07. Place the mug on the front-right edge
@@ -90,7 +94,7 @@ export function buildGallery(canvas) {
   moonKey.position.set(-8, 14, 6);
   scene.add(moonKey);
 
-  const amberRim = new THREE.PointLight(COLORS.amber, 1.4, 22, 1.6);
+  const amberRim = new THREE.PointLight(COLORS.amber, 0.95, 22, 1.6);
   amberRim.position.set(0, 4, -2);
   scene.add(amberRim);
 
@@ -137,7 +141,12 @@ export function buildGallery(canvas) {
     mug.update(elapsed);
 
     // Pulse the amber rim light gently
-    amberRim.intensity = 1.2 + Math.sin(elapsed * 0.6) * 0.18;
+    amberRim.intensity = 0.95 + Math.sin(elapsed * 0.6) * 0.10;
+
+    // Advance the cosmic floor overlay (no-op if the overlay is absent)
+    if (floor.userData.cosmicMaterial) {
+      floor.userData.cosmicMaterial.uniforms.uTime.value = elapsed;
+    }
 
     renderer.render(scene, camera);
   }
@@ -279,7 +288,7 @@ function buildFloor() {
     new THREE.MeshStandardMaterial({
       color: COLORS.amber,
       emissive: COLORS.amber,
-      emissiveIntensity: 0.35,
+      emissiveIntensity: 0.18,
       roughness: 0.7,
       metalness: 0.2,
     }),
@@ -287,6 +296,19 @@ function buildFloor() {
   rim.rotation.x = -Math.PI / 2;
   rim.position.y = 0.01;
   group.add(rim);
+
+  // Cosmic overlay — additive blooms + star pinpoints, drifts slowly.
+  // Sits a hairline above the disc; honors prefers-reduced-motion.
+  const cosmicMat = makeCosmicFloorMaterial();
+  const cosmic = new THREE.Mesh(
+    new THREE.CircleGeometry(GALLERY.radius + 4, 128),
+    cosmicMat,
+  );
+  cosmic.rotation.x = -Math.PI / 2;
+  cosmic.position.y = 0.005;
+  cosmic.renderOrder = 1;
+  group.add(cosmic);
+  group.userData.cosmicMaterial = cosmicMat;
 
   return group;
 }
@@ -354,13 +376,143 @@ function makeFloorTexture() {
   return tex;
 }
 
+function prefersReducedMotion() {
+  return typeof window !== "undefined"
+    && window.matchMedia
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function makeCosmicFloorMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uTime:          { value: 0 },
+      uReducedMotion: { value: prefersReducedMotion() ? 1.0 : 0.0 },
+      uColorWarm:     { value: new THREE.Color(COLORS.amber) },
+      uColorMag:      { value: new THREE.Color(0xa14a7f) },
+      uColorCool:     { value: new THREE.Color(COLORS.cyan) },
+      uColorStar:     { value: new THREE.Color(COLORS.vellum) },
+      uCenterFade:    { value: 0.18 },
+    },
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uTime;
+      uniform float uReducedMotion;
+      uniform vec3  uColorWarm;
+      uniform vec3  uColorMag;
+      uniform vec3  uColorCool;
+      uniform vec3  uColorStar;
+      uniform float uCenterFade;
+      varying vec2 vUv;
+
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+      }
+      float vnoise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        float a = hash(i);
+        float b = hash(i + vec2(1.0, 0.0));
+        float c = hash(i + vec2(0.0, 1.0));
+        float d = hash(i + vec2(1.0, 1.0));
+        return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+      }
+      float fbm(vec2 p) {
+        float v = 0.0;
+        float a = 0.5;
+        for (int i = 0; i < 3; i++) {
+          v += a * vnoise(p);
+          p *= 2.03;
+          a *= 0.5;
+        }
+        return v;
+      }
+
+      void main() {
+        vec2 centered = vUv - 0.5;
+        float radial = length(centered);
+
+        float t = mix(uTime, 0.0, uReducedMotion);
+        vec2 drift = vec2(t * 0.012, t * -0.008);
+
+        float centerDamp = smoothstep(uCenterFade, uCenterFade + 0.12, radial);
+        float outerDamp  = 1.0 - smoothstep(0.46, 0.50, radial);
+        float ringMask = centerDamp * outerDamp;
+
+        // Two-octave fbm with mild domain warping
+        float n1 = fbm(vUv * 2.8 + drift);
+        float n2 = fbm(vUv * 5.4 - drift * 1.4 + n1);
+        float raw = mix(n1, n2, 0.55);
+
+        // Layer 1 — diffuse galactic dust: present across most of the disc.
+        // Provides the always-on warm/magenta haze.
+        float dust = smoothstep(0.28, 0.58, raw);
+        dust = pow(dust, 1.4) * ringMask;
+
+        // Layer 2 — discrete blooms: narrow band, steep power. Sits on top of
+        // the dust as bright amber pockets.
+        float bloom = smoothstep(0.58, 0.72, raw);
+        bloom = pow(bloom, 2.5) * ringMask;
+
+        // Combined intensity for color ramp + alpha
+        float nebula = clamp(dust * 0.7 + bloom * 0.9, 0.0, 1.0);
+
+        // Color: cool whisper at darkest dust → magenta dominates the mid-range
+        // → amber at the bloom cores.
+        vec3 nebColor = mix(uColorCool * 0.4, uColorMag, smoothstep(0.0, 0.35, nebula));
+        nebColor      = mix(nebColor,        uColorWarm, smoothstep(0.55, 0.85, nebula));
+
+        // Star layer
+        vec2  starGrid = floor(vUv * 240.0);
+        float starHash = hash(starGrid);
+        float starPick = step(0.987, starHash);
+        vec2  starCell = fract(vUv * 240.0) - 0.5;
+        float starDist = length(starCell);
+        float star = starPick * smoothstep(0.18, 0.0, starDist) * ringMask;
+
+        vec3  color = nebColor * nebula * 1.4 + uColorStar * star * 1.0;
+        float alpha = clamp(nebula * 1.2 + star, 0.0, 1.0);
+        gl_FragColor = vec4(color, alpha);
+      }
+    `,
+  });
+}
+
 // =================================================================
 // PILLARS — ring of marble columns with glowing lamp finials
 // =================================================================
+function makeFlutedShaft(rTop, rBottom, height, fluteCount = 16, depth = 0.018) {
+  const radialSegments = fluteCount * 6;
+  const geo = new THREE.CylinderGeometry(rTop, rBottom, height, radialSegments, 1);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i += 1) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    const r = Math.hypot(x, z);
+    if (r < 1e-4) continue;
+    const theta = Math.atan2(z, x);
+    const newR = r - depth * (0.5 - 0.5 * Math.cos(theta * fluteCount));
+    pos.setX(i, Math.cos(theta) * newR);
+    pos.setZ(i, Math.sin(theta) * newR);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
 function buildPillars() {
   const group = new THREE.Group();
 
-  const pillarGeo = new THREE.CylinderGeometry(0.32, 0.4, GALLERY.pillarHeight, 24);
+  const pillarGeo = makeFlutedShaft(0.32, 0.4, GALLERY.pillarHeight);
   const pillarMat = new THREE.MeshStandardMaterial({
     color: COLORS.pillar,
     roughness: 0.55,
@@ -404,6 +556,44 @@ function buildPillars() {
     const finial = new THREE.Mesh(finialGeo, finialMat);
     finial.position.set(x, GALLERY.pillarHeight + 0.5, z);
     group.add(finial);
+  }
+
+  return group;
+}
+
+// =================================================================
+// PLINTH BASE DOTS — museum LED markers tracing the plinth footprint
+// =================================================================
+function buildPlinthDots() {
+  const group = new THREE.Group();
+
+  const dotGeo = new THREE.SphereGeometry(0.045, 12, 8);
+  const dotMat = new THREE.MeshStandardMaterial({
+    color: COLORS.amber2,
+    emissive: COLORS.amber,
+    emissiveIntensity: 0.85,
+    roughness: 0.4,
+    metalness: 0.0,
+  });
+
+  const half = 1.28;
+  const perSide = 7;
+  for (let i = 0; i < perSide; i += 1) {
+    const t = -half + (2 * half) * (i / (perSide - 1));
+    const n = new THREE.Mesh(dotGeo, dotMat); n.position.set(t, 0.04, -half); group.add(n);
+    const s = new THREE.Mesh(dotGeo, dotMat); s.position.set(t, 0.04,  half); group.add(s);
+    if (i !== 0 && i !== perSide - 1) {
+      const e = new THREE.Mesh(dotGeo, dotMat); e.position.set( half, 0.04, t); group.add(e);
+      const w = new THREE.Mesh(dotGeo, dotMat); w.position.set(-half, 0.04, t); group.add(w);
+    }
+  }
+
+  for (let sx = -1; sx <= 1; sx += 2) {
+    for (let sz = -1; sz <= 1; sz += 2) {
+      const lamp = new THREE.PointLight(COLORS.amber, 0.32, 2.6, 2.6);
+      lamp.position.set(sx * half, 0.18, sz * half);
+      group.add(lamp);
+    }
   }
 
   return group;
