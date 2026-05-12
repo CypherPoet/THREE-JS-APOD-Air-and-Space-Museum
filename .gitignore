@@ -1,6 +1,31 @@
-.claude/
+# Local Claude state — ignore everything except the project-shipped
+# skills under .claude/skills/<our-skill-name>/. Plugin-installed skills
+# that land in .claude/skills/* are NOT tracked.
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/capture-museum-media/
+
+# macOS
 .DS_Store
-skills-lock.json
+
+# Editor / IDE
+.vscode/
+*.swp
+*.swo
+
+# Node
 node_modules/
+
+# Env files (none used today, defensive)
+.env
+.env.local
+
+# Logs
 *.log
+
+# Skills metadata Claude writes locally
+skills-lock.json
+
+# Playwright CLI artifacts (snapshots, console logs)
 .playwright-cli/
