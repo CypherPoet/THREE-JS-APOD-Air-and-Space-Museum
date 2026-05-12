@@ -1,10 +1,10 @@
 # Air & Space Museum · A NASA APOD Showcase
 
+![Air & Space Museum — Gallery view with HUD chrome](media/02-gallery.png)
+
 [![X](https://img.shields.io/badge/%40cypher__poet-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/cypher_poet) [![PayPal](https://img.shields.io/badge/PayPal-003087?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.com/ncp/payment/L6M553P28YPDY) [![Cash App](https://img.shields.io/badge/Cash_App-00C244?style=for-the-badge&logo=cashapp&logoColor=white)](https://cash.app/$CypherPoet) [![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=000000)](https://buymeacoffee.com/cypherpoet) [![Linktree](https://img.shields.io/badge/Linktree-43E660?style=for-the-badge&logo=linktree&logoColor=white)](https://linktr.ee/CypherPoet) [![MIT License](https://img.shields.io/badge/MIT_License-ff7300?style=for-the-badge&logo=opensourceinitiative&logoColor=000000)](https://github.com/CypherPoet/THREE-JS-APOD-Air-and-Space-Museum/blob/main/LICENSE)
 
 [![Live](https://img.shields.io/badge/Live-cypherpoet.github.io-e8743b?style=for-the-badge&logo=githubpages&logoColor=white)](https://cypherpoet.github.io/THREE-JS-APOD-Air-and-Space-Museum/) [![Built with](https://img.shields.io/badge/Built_with-Three.js-f5efe2?style=for-the-badge&logo=threedotjs&logoColor=04060d)](https://threejs.org/) [![Source](https://img.shields.io/badge/Source-APOD-5fb3c1?style=for-the-badge&logo=nasa&logoColor=white)](https://apod.nasa.gov/apod/astropix.html)
-
-![Air & Space Museum — Gallery view with HUD chrome](media/02-gallery.png)
 
 An interactive, walk-through Three.js gallery whose centrepiece is NASA's **Astronomy Picture of the Day** — refreshed automatically every morning. Designed to feel like a small open-air museum drifting in deep space, with first-person controls, a procedural lo-fi radio, and a discoverable easter egg.
 
@@ -15,7 +15,6 @@ An interactive, walk-through Three.js gallery whose centrepiece is NASA's **Astr
 ## What's inside
 
 - **Today's APOD as the centrepiece.** The day's image hangs in a hovering frame above a polished plinth. The frame auto-fits the image's aspect ratio.
-- **No NASA API key required.** A nightly GitHub Action scrapes `apod.nasa.gov/astropix.html`, compresses the image with ImageMagick, and commits the metadata + image straight into the repo. The site fetches a local JSON file — same-origin, no proxy.
 - **First-person navigation.** Pointer-lock + WASD + mouse-look on desktop; drag-to-look + tap-to-walk on mobile.
 - **A ten-station procedural lo-fi radio.** Pure WebAudio — no audio files. Each station has its own scale, waveform, filter, and atmosphere (Cassini Drift, Hubble Glow, Voyager Echo, Magnetosphere, Apollo Static, Tycho Bell, Phobos Heartbeat, Solar Wind, Crescent Dust, Deep Field). Switching stations cross-fades.
 - **An editorial reader.** Press <kbd>E</kbd> near the plinth (or click the on-screen prompt) for the curator's note — the full APOD explanation in a magazine-style overlay.
@@ -68,10 +67,6 @@ There's also a recorded walkthrough at [`media/walkthrough.webm`](media/walkthro
 
 Palette: cosmic navy `#04060d`, vellum `#f5efe2`, Voyager amber `#e8743b`, planetarium cyan `#5fb3c1`.
 
-### Coffee mug, technically
-
-A `LatheGeometry` revolves a 14-vertex profile to form the hollow ceramic body. A partial `TorusGeometry` arc makes the handle. A `CircleGeometry` disc inside is the dark coffee surface. Each frame, a `THREE.Raycaster` casts from the camera centre against an invisible hit cylinder slightly inflated around the mug — when it hits within ~3.5 metres, the emissive intensity ramps up, an idle bob plays, and the world-hint fades in. Click while pointer-locked → `window.open(BMC_URL)`.
-
 ## Run it locally
 
 No npm install, no build. Just serve the directory:
@@ -122,9 +117,9 @@ node scripts/fetch-apod.mjs
 
 ## Acknowledgements
 
-- **Imagery + writing**: [NASA Astronomy Picture of the Day](https://apod.nasa.gov/), curated daily by Robert Nemiroff (MTU) & Jerry Bonnell (UMCP). Specific image and text credits appear in the in-museum HUD and reader overlay.
-- **Three.js** (Ricardo Cabello & contributors)
-- **Typefaces** by Vernon Adams (Michroma) and Airbus Group / Polytype (B612 / B612 Mono)
+- **Imagery + writing**: [NASA Astronomy Picture of the Day](https://apod.nasa.gov/), curated daily by Robert Nemiroff ([MTU](https://www.mtu.edu/)) & Jerry Bonnell ([UMCP](https://umd.edu/)). Specific image and text credits appear in the in-museum HUD and reader overlay.
+- **[Three.js](https://threejs.org/)** by [Ricardo Cabello](https://mrdoob.com/) & contributors
+- **Typefaces**: [Michroma](https://fonts.google.com/specimen/Michroma) by Vernon Adams; [B612](https://fonts.google.com/specimen/B612) & [B612 Mono](https://fonts.google.com/specimen/B612+Mono) by [Airbus](https://www.airbus.com/) / Polytype
 
 ## License
 
