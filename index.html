@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#04060d" />
+    <title>Air &amp; Space Museum — APOD</title>
+    <meta
+      name="description"
+      content="An interactive Three.js gallery featuring NASA's Astronomy Picture of the Day."
+    />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Michroma&family=B612:ital,wght@0,400;0,700;1,400;1,700&family=B612+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+    />
+
+    <link rel="stylesheet" href="./styles.css" />
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+
+  <body>
+    <!-- ============================================================ -->
+    <!-- Three.js renders here                                         -->
+    <!-- ============================================================ -->
+    <canvas id="stage" aria-label="Interactive 3D museum scene"></canvas>
+
+    <!-- ============================================================ -->
+    <!-- Boot / loading screen                                         -->
+    <!-- ============================================================ -->
+    <section id="boot" class="boot" aria-live="polite">
+      <div class="boot__frame">
+        <div class="boot__chrome">
+          <span class="boot__seal">
+            <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
+              <circle cx="22" cy="22" r="20" fill="none" stroke="currentColor" stroke-width="0.6"/>
+              <circle cx="22" cy="22" r="14" fill="none" stroke="currentColor" stroke-width="0.6"/>
+              <circle cx="22" cy="22" r="2.4" fill="currentColor"/>
+              <path d="M22 2 L22 8 M22 36 L22 42 M2 22 L8 22 M36 22 L42 22"
+                    stroke="currentColor" stroke-width="0.6"/>
+              <path d="M22 8 C 30 14, 30 30, 22 36 C 14 30, 14 14, 22 8 Z"
+                    fill="none" stroke="currentColor" stroke-width="0.6" opacity="0.6"/>
+            </svg>
+          </span>
+          <div class="boot__id">
+            <span class="boot__id-line">NORTHERN ARM / GALLERY 04</span>
+            <span class="boot__id-line">DEEP SPACE NETWORK · CHANNEL 7</span>
+          </div>
+        </div>
+
+        <h1 class="boot__title">
+          <span class="boot__title-eyebrow">An Open-Air Museum of the Cosmos</span>
+          <span class="boot__title-main">
+            Air <em>&amp;</em> Space
+            <span class="boot__title-sub">Museum</span>
+          </span>
+        </h1>
+
+        <p class="boot__feed" id="boot-feed">
+          <span class="boot__feed-line" data-line="0">Establishing telemetry…</span>
+          <span class="boot__feed-line" data-line="1">Querying NASA archives</span>
+          <span class="boot__feed-line" data-line="2">Composing today's exhibit</span>
+        </p>
+
+        <div class="boot__bar">
+          <div class="boot__bar-fill" id="boot-bar-fill"></div>
+        </div>
+
+        <button id="boot-enter" class="boot__enter" type="button" disabled>
+          <span class="boot__enter-label">Enter the Gallery</span>
+          <span class="boot__enter-glyph" aria-hidden="true">→</span>
+        </button>
+
+        <p class="boot__legal">
+          Imagery courtesy NASA / APOD. Exhibit refreshed daily.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- Heads-up display                                              -->
+    <!-- ============================================================ -->
+    <header id="hud" class="hud">
+      <div class="hud__corner hud__corner--tl">
+        <span class="hud__label">Exhibit · Today</span>
+        <span class="hud__museum">Air &amp; Space Museum</span>
+        <span class="hud__sub" id="hud-date">—</span>
+      </div>
+
+      <div class="hud__corner hud__corner--tr">
+        <span class="hud__label hud__label--right">Now on Display</span>
+        <span class="hud__title" id="hud-title">Loading exhibit…</span>
+        <span class="hud__sub hud__sub--right" id="hud-credit"></span>
+      </div>
+
+      <div class="hud__corner hud__corner--bl">
+        <span class="hud__label">Navigation</span>
+        <ul class="hud__keys">
+          <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>walk</span></li>
+          <li><kbd>Mouse</kbd><span>look</span></li>
+          <li><kbd>Shift</kbd><span>stride</span></li>
+          <li><kbd>E</kbd><span>read</span></li>
+          <li><kbd>Esc</kbd><span>release</span></li>
+        </ul>
+      </div>
+
+      <div class="hud__corner hud__corner--br">
+        <span class="hud__pulse" aria-hidden="true"></span>
+        <span class="hud__label hud__label--right">Mission Control</span>
+        <span class="hud__sub hud__sub--right" id="hud-status">Link nominal</span>
+      </div>
+
+      <div class="hud__actions">
+        <button id="hud-audio" class="hud__btn" type="button" aria-label="Toggle ambient soundtrack" title="Toggle ambient soundtrack">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 9 H7 L12 5 V19 L7 15 H4 Z"/>
+            <path class="audio-wave" d="M16 8.5 Q19 12 16 15.5"/>
+            <path class="audio-wave" d="M18.5 6 Q22.5 12 18.5 18"/>
+          </svg>
+        </button>
+        <button id="hud-settings" class="hud__btn" type="button" aria-label="Settings" title="Settings · API key">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
+
+      <button class="hud__center" id="hud-prompt" type="button" hidden>
+        <span class="hud__prompt-key"><kbd>E</kbd></span>
+        <span class="hud__prompt-text">Read the curator's note</span>
+      </button>
+
+      <div class="hud__lock" id="hud-lock" hidden>
+        <span>Click the gallery to look around</span>
+      </div>
+    </header>
+
+    <!-- ============================================================ -->
+    <!-- Reading modal: full curator's note                            -->
+    <!-- ============================================================ -->
+    <aside id="reader" class="reader" hidden aria-modal="true" role="dialog">
+      <div class="reader__scrim"></div>
+      <article class="reader__sheet">
+        <header class="reader__masthead">
+          <span class="reader__pill">Curator's Note</span>
+          <span class="reader__date" id="reader-date">—</span>
+          <button id="reader-close" class="reader__close" type="button" aria-label="Close">
+            <span aria-hidden="true">×</span>
+          </button>
+        </header>
+
+        <h2 class="reader__title" id="reader-title">—</h2>
+        <p class="reader__credit" id="reader-credit"></p>
+
+        <div class="reader__rule" aria-hidden="true">
+          <span></span><em>★</em><span></span>
+        </div>
+
+        <p class="reader__body" id="reader-body">—</p>
+
+        <footer class="reader__foot">
+          <span>Source · NASA Astronomy Picture of the Day</span>
+          <a id="reader-link" href="https://apod.nasa.gov/apod/astropix.html" target="_blank" rel="noopener">
+            Visit the original ↗
+          </a>
+        </footer>
+      </article>
+    </aside>
+
+    <!-- ============================================================ -->
+    <!-- Settings panel (NASA API key)                                 -->
+    <!-- ============================================================ -->
+    <aside id="settings" class="settings" hidden aria-modal="true" role="dialog">
+      <div class="settings__scrim"></div>
+      <div class="settings__sheet">
+        <button id="settings-close" class="settings__close" type="button" aria-label="Close settings">×</button>
+        <header class="settings__head">
+          <span class="settings__pill">Mission Control</span>
+        </header>
+
+        <h2 class="settings__title">Use Your Own NASA Key</h2>
+
+        <p class="settings__intro">
+          NASA's shared <code>DEMO_KEY</code> is throttled to ~30 requests per hour.
+          Grab a free personal key at
+          <a href="https://api.nasa.gov" target="_blank" rel="noopener">api.nasa.gov</a>
+          and paste it below for unlimited daily curation.
+        </p>
+
+        <div class="settings__field">
+          <label for="settings-key">API Key</label>
+          <input id="settings-key" type="text" autocomplete="off" spellcheck="false" placeholder="DEMO_KEY" />
+          <span class="settings__hint" id="settings-status">Currently using shared DEMO_KEY</span>
+        </div>
+
+        <div class="settings__actions">
+          <button id="settings-clear" class="settings__btn" type="button">Reset</button>
+          <button id="settings-save" class="settings__btn settings__btn--primary" type="button">Save &amp; Reload</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ============================================================ -->
+    <!-- Error toast                                                   -->
+    <!-- ============================================================ -->
+    <div id="toast" class="toast" hidden>
+      <span class="toast__dot"></span>
+      <span id="toast-text">—</span>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
