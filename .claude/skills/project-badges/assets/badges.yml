@@ -1,0 +1,38 @@
+style:
+  format: for-the-badge
+
+badges:
+  - name: X
+    logo: x
+    label: "@cypher_poet"
+    url: https://x.com/cypher_poet
+    logoColor: white
+    color: "000000"
+
+  - name: PayPal
+    logo: paypal
+    label: PayPal
+    url: https://www.paypal.com/ncp/payment/L6M553P28YPDY
+    logoColor: white
+    color: "003087"
+
+  - name: Cash App
+    logo: cashapp
+    label: Cash App
+    url: https://cash.app/$CypherPoet
+    logoColor: white
+    color: "00C244"
+
+  - name: Buy Me a Coffee
+    logo: buymeacoffee
+    label: Buy Me a Coffee
+    url: https://buymeacoffee.com/cypherpoet
+    logoColor: "000000"
+    color: FFDD00
+
+  - name: MIT License
+    logo: opensourceinitiative
+    label: MIT License
+    url: "{{repo_url}}/blob/main/LICENSE"
+    logoColor: "000000"
+    color: "ff7300"
