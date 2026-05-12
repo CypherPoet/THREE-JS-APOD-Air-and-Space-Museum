@@ -1,8 +1,8 @@
 // =================================================================
-// UI surface: boot screen, HUD, reading modal, settings, toast
+// UI surface: boot screen, HUD, reader modal, radio dial, toast
 // =================================================================
 
-import { formatDate, getApiKey, setApiKey, isUsingDefaultKey } from "./apod.js";
+import { formatDate } from "./apod.js";
 
 const q = (sel) => document.querySelector(sel);
 
@@ -14,46 +14,47 @@ export function createUI() {
   const feedLines  = [...document.querySelectorAll(".boot__feed-line")];
 
   // -------- HUD --------
-  const hud         = q("#hud");
-  const hudDate     = q("#hud-date");
-  const hudTitle    = q("#hud-title");
-  const hudCredit   = q("#hud-credit");
-  const hudStatus   = q("#hud-status");
-  const hudPrompt   = q("#hud-prompt");
-  const hudLock     = q("#hud-lock");
-  const hudAudioBtn = q("#hud-audio");
-  const hudSettingsBtn = q("#hud-settings");
+  const hud       = q("#hud");
+  const hudDate   = q("#hud-date");
+  const hudTitle  = q("#hud-title");
+  const hudCredit = q("#hud-credit");
+  const hudPrompt = q("#hud-prompt");
+  const hudLock   = q("#hud-lock");
+
+  // -------- radio widget --------
+  const radioName    = q("#radio-name");
+  const radioEra     = q("#radio-era");
+  const radioChannel = q("#radio-channel");
+  const radioPrev    = q("#radio-prev");
+  const radioNext    = q("#radio-next");
+  const radioToggle  = q("#radio-toggle");
+  const radioOpen    = q("#radio-station-name");
 
   // -------- reader --------
-  const reader      = q("#reader");
-  const readerDate  = q("#reader-date");
-  const readerTitle = q("#reader-title");
-  const readerBody  = q("#reader-body");
-  const readerLink  = q("#reader-link");
+  const reader       = q("#reader");
+  const readerDate   = q("#reader-date");
+  const readerTitle  = q("#reader-title");
+  const readerBody   = q("#reader-body");
+  const readerLink   = q("#reader-link");
   const readerCredit = q("#reader-credit");
   const readerScrim  = reader.querySelector(".reader__scrim");
-  const readerClose = q("#reader-close");
+  const readerClose  = q("#reader-close");
 
-  // -------- settings --------
-  const settings       = q("#settings");
-  const settingsScrim  = settings.querySelector(".settings__scrim");
-  const settingsClose  = q("#settings-close");
-  const settingsKey    = q("#settings-key");
-  const settingsStatus = q("#settings-status");
-  const settingsSave   = q("#settings-save");
-  const settingsClear  = q("#settings-clear");
+  // -------- dial (radio station list) --------
+  const dial      = q("#dial");
+  const dialScrim = dial.querySelector(".dial__scrim");
+  const dialClose = q("#dial-close");
+  const dialList  = q("#dial-list");
 
   // -------- toast --------
-  const toast      = q("#toast");
-  const toastText  = q("#toast-text");
+  const toast     = q("#toast");
+  const toastText = q("#toast-text");
 
   let activeLine = 0;
   showFeedLine(0);
 
   function showFeedLine(index) {
-    feedLines.forEach((line, i) => {
-      line.classList.toggle("is-active", i === index);
-    });
+    feedLines.forEach((line, i) => line.classList.toggle("is-active", i === index));
     activeLine = index;
   }
 
@@ -63,9 +64,7 @@ export function createUI() {
   }
 
   function advanceFeed() {
-    if (activeLine < feedLines.length - 1) {
-      showFeedLine(activeLine + 1);
-    }
+    if (activeLine < feedLines.length - 1) showFeedLine(activeLine + 1);
   }
 
   function bootReady() {
@@ -81,101 +80,81 @@ export function createUI() {
     setTimeout(() => boot.remove(), 1400);
   }
 
-  function setHudDate(iso) {
-    hudDate.textContent = formatDate(iso);
-  }
-  function setHudTitle(title) {
-    hudTitle.textContent = title;
-  }
-  function setHudCredit(text) {
-    hudCredit.textContent = text || "";
-  }
-  function setHudStatus(text) {
-    hudStatus.textContent = text;
-  }
-  function showInteractPrompt(show) {
-    hudPrompt.hidden = !show;
-  }
-  function showLockHint(show) {
-    hudLock.hidden = !show;
-  }
+  function setHudDate(iso)   { hudDate.textContent = formatDate(iso); }
+  function setHudTitle(title){ hudTitle.textContent = title; }
+  function setHudCredit(text){ hudCredit.textContent = text || ""; }
+  function showInteractPrompt(show) { hudPrompt.hidden = !show; }
+  function showLockHint(show) { hudLock.hidden = !show; }
 
   // ------ reader ------
   function openReader(apod) {
     if (!apod) return;
     readerDate.textContent = formatDate(apod.date);
     readerTitle.textContent = apod.title;
-    readerCredit.textContent = apod.copyright
-      ? `Image · ${apod.copyright}`
+    readerCredit.textContent = apod.credit
+      ? `Image · ${apod.credit}`
       : "Image · NASA / APOD";
     readerBody.textContent = apod.explanation;
     readerLink.href = apod.originalUrl;
     reader.hidden = false;
   }
-  function closeReader() {
-    reader.hidden = true;
-  }
+  function closeReader() { reader.hidden = true; }
   readerClose.addEventListener("click", closeReader);
   readerScrim.addEventListener("click", closeReader);
 
-  // ------ settings ------
-  function refreshSettingsStatus() {
-    settingsStatus.textContent = isUsingDefaultKey()
-      ? "Currently using shared DEMO_KEY"
-      : "Using your personal key";
-  }
-
-  function openSettings() {
-    const current = getApiKey();
-    settingsKey.value = current === "DEMO_KEY" ? "" : current;
-    refreshSettingsStatus();
-    settings.hidden = false;
-    setTimeout(() => settingsKey.focus(), 80);
-  }
-  function closeSettings() {
-    settings.hidden = true;
-  }
-  settingsClose.addEventListener("click", closeSettings);
-  settingsScrim.addEventListener("click", closeSettings);
-  settingsSave.addEventListener("click", () => {
-    setApiKey(settingsKey.value);
-    refreshSettingsStatus();
-    closeSettings();
-    location.reload();
-  });
-  settingsClear.addEventListener("click", () => {
-    setApiKey("");
-    settingsKey.value = "";
-    refreshSettingsStatus();
-  });
-  settingsKey.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") settingsSave.click();
-  });
-
-  hudSettingsBtn.addEventListener("click", openSettings);
-
-  // ------ audio toggle button ------
-  function setAudioActive(active) {
-    hudAudioBtn.classList.toggle("is-active", active);
-    hudAudioBtn.setAttribute("aria-pressed", String(active));
-  }
-  function onAudioToggle(callback) {
-    hudAudioBtn.addEventListener("click", () => {
-      const active = callback?.();
-      if (typeof active === "boolean") setAudioActive(active);
+  // ------ radio dial ------
+  function buildDialList(stations, currentIndex, onPick) {
+    dialList.innerHTML = "";
+    stations.forEach((s, i) => {
+      const li = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "dial__row" + (i === currentIndex ? " is-current" : "");
+      button.innerHTML = `
+        <span class="dial__num">${String(i + 1).padStart(2, "0")}</span>
+        <span class="dial__meta">
+          <span class="dial__sname"></span>
+          <span class="dial__sera"></span>
+        </span>
+        <span class="dial__playing">Now playing</span>
+      `;
+      button.querySelector(".dial__sname").textContent = s.name;
+      button.querySelector(".dial__sera").textContent = s.era;
+      button.addEventListener("click", () => { onPick(i); });
+      li.appendChild(button);
+      dialList.appendChild(li);
     });
   }
 
-  // ------ interact prompt (click + key both work) ------
-  function onPromptClick(callback) {
-    hudPrompt.addEventListener("click", () => callback?.());
+  function highlightCurrentStation(index) {
+    [...dialList.querySelectorAll(".dial__row")].forEach((el, i) => {
+      el.classList.toggle("is-current", i === index);
+    });
   }
 
-  // ------ keyboard shortcuts for modals ------
+  function openDial() { dial.hidden = false; }
+  function closeDial() { dial.hidden = true; }
+  dialClose.addEventListener("click", closeDial);
+  dialScrim.addEventListener("click", closeDial);
+  radioOpen.addEventListener("click", openDial);
+
+  // ------ radio surface ------
+  function setRadioStation({ stationIndex, station, isPlaying }) {
+    radioName.textContent = station.name;
+    radioEra.textContent = station.era;
+    radioChannel.textContent = `CH ${String(stationIndex + 1).padStart(2, "0")} / 10`;
+    radioToggle.setAttribute("aria-pressed", String(isPlaying));
+    highlightCurrentStation(stationIndex);
+  }
+  function onRadioPrev(cb) { radioPrev.addEventListener("click", () => cb?.()); }
+  function onRadioNext(cb) { radioNext.addEventListener("click", () => cb?.()); }
+  function onRadioToggle(cb) { radioToggle.addEventListener("click", () => cb?.()); }
+
+  // ------ keyboard shortcuts ------
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       if (!reader.hidden) closeReader();
-      else if (!settings.hidden) closeSettings();
+      else if (!dial.hidden) closeDial();
     }
   });
 
@@ -185,9 +164,7 @@ export function createUI() {
     toastText.textContent = text;
     toast.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      toast.hidden = true;
-    }, durationMs);
+    toastTimer = setTimeout(() => { toast.hidden = true; }, durationMs);
   }
 
   function onEnter(callback) {
@@ -198,6 +175,10 @@ export function createUI() {
     });
   }
 
+  function onPromptClick(callback) {
+    hudPrompt.addEventListener("click", () => callback?.());
+  }
+
   return {
     setBootProgress,
     advanceFeed,
@@ -206,18 +187,20 @@ export function createUI() {
     setHudDate,
     setHudTitle,
     setHudCredit,
-    setHudStatus,
     showInteractPrompt,
     showLockHint,
     openReader,
     closeReader,
-    openSettings,
-    closeSettings,
     onPromptClick,
-    onAudioToggle,
-    setAudioActive,
+    buildDialList,
+    openDial,
+    closeDial,
+    setRadioStation,
+    onRadioPrev,
+    onRadioNext,
+    onRadioToggle,
     showToast,
     isReaderOpen: () => !reader.hidden,
-    isSettingsOpen: () => !settings.hidden,
+    isDialOpen: () => !dial.hidden,
   };
 }

@@ -1,0 +1,52 @@
+name: Refresh APOD
+
+# Pulls today's Astronomy Picture of the Day, compresses the image, and
+# commits the updated data/ files. GitHub Pages auto-deploys on push.
+
+on:
+  schedule:
+    # NASA usually rolls the new image around 05:00 UTC; we run at 06:30
+    # to give it some slack. Cron is UTC.
+    - cron: '30 6 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-apod
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install ImageMagick (preinstalled — verify)
+        run: |
+          which magick || which convert || sudo apt-get install -y imagemagick
+          magick -version | head -1 || convert -version | head -1
+
+      - name: Fetch today's APOD
+        run: node scripts/fetch-apod.mjs
+
+      - name: Commit if changed
+        run: |
+          git config user.name "apod-bot"
+          git config user.email "apod-bot@users.noreply.github.com"
+          if git diff --quiet -- data/; then
+            echo "No changes — skipping commit."
+            exit 0
+          fi
+          DATE=$(node -e "console.log(require('./data/apod.json').date)")
+          TITLE=$(node -e "console.log(require('./data/apod.json').title)")
+          git add data/apod.json data/apod.jpg
+          git commit -m "Refresh APOD · ${DATE} · ${TITLE}"
+          git push

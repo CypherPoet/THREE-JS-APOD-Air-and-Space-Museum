@@ -478,50 +478,112 @@ kbd {
   transform: translate(-50%, -50%);
 }
 
-/* HUD action buttons (audio toggle, settings) — top right */
-.hud__actions {
-  position: absolute;
-  top: var(--safe-y);
-  right: var(--safe-x);
-  display: flex;
-  gap: 10px;
+/* =================================================================
+   RADIO widget (lives in the bottom-right HUD corner)
+   ================================================================= */
+.radio {
   pointer-events: auto;
-  z-index: 21;
+  display: grid;
+  gap: 8px;
+  width: min(280px, 30vw);
+  align-items: end;
+  justify-items: end;
 }
-.hud__btn {
-  width: 40px;
-  height: 40px;
+.radio__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.radio__channel {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--vellum);
+  opacity: 0.55;
+}
+.radio__station {
+  display: grid;
+  gap: 2px;
+  text-align: right;
+  justify-items: end;
+  border: none;
+  background: transparent;
+  padding: 6px 0;
+  cursor: pointer;
+  color: inherit;
+  transition: transform 220ms ease;
+  position: relative;
+}
+.radio__station::after {
+  content: "";
+  position: absolute;
+  bottom: 4px;
+  right: 0;
+  width: 14px;
+  height: 1px;
+  background: var(--amber);
+  transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.radio__station:hover::after { width: 100%; }
+.radio__name {
+  font-family: var(--display);
+  font-size: clamp(15px, 1.4vw, 18px);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vellum);
+  line-height: 1.1;
+}
+.radio__era {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--amber);
+  opacity: 0.85;
+}
+.radio__controls {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  background: rgba(4, 6, 13, 0.6);
-  border: 1px solid rgba(245, 239, 226, 0.3);
-  color: var(--vellum);
-  cursor: pointer;
-  transition: all 220ms ease;
-  font-family: var(--mono);
-  font-size: 14px;
-  font-weight: 700;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(4, 6, 13, 0.55);
+  border: 1px solid rgba(245, 239, 226, 0.18);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
-.hud__btn:hover {
-  background: rgba(232, 116, 59, 0.8);
-  border-color: var(--amber);
-  color: var(--void);
+.radio__btn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--vellum);
+  cursor: pointer;
+  transition: all 200ms ease;
 }
-.hud__btn.is-active {
-  border-color: var(--amber);
-  color: var(--amber);
+.radio__btn svg { width: 16px; height: 16px; }
+.radio__btn:hover { color: var(--amber); }
+.radio__btn--play {
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(245, 239, 226, 0.3);
+  border-radius: 50%;
 }
-.hud__btn svg {
-  width: 20px;
-  height: 20px;
-}
+.radio__btn--play:hover { border-color: var(--amber); background: rgba(232, 116, 59, 0.1); }
 
-/* Make the corner-tr stack below the actions */
-.hud__corner--tr {
-  padding-top: calc(var(--safe-y) + 56px);
+/* Play/pause icon swap based on aria-pressed */
+.radio__btn--play .radio__icon-pause { display: none; }
+.radio__btn--play[aria-pressed="true"] .radio__icon-play { display: none; }
+.radio__btn--play[aria-pressed="true"] .radio__icon-pause { display: block; }
+
+/* Compact the BR corner when radio is present */
+.hud__corner--br {
+  padding-bottom: calc(var(--safe-y) - 4px);
 }
 
 /* =================================================================
@@ -692,9 +754,9 @@ kbd {
 .reader__foot a { color: var(--rust); }
 
 /* =================================================================
-   SETTINGS PANEL (API key)
+   DIAL (full radio station list)
    ================================================================= */
-.settings {
+.dial {
   position: fixed;
   inset: 0;
   z-index: 70;
@@ -705,129 +767,33 @@ kbd {
   transition: opacity 280ms ease;
   pointer-events: none;
 }
-.settings:not([hidden]) { pointer-events: auto; opacity: 1; }
-.settings__scrim {
+.dial:not([hidden]) { pointer-events: auto; opacity: 1; }
+.dial__scrim {
   position: absolute;
   inset: 0;
-  background: rgba(4, 6, 13, 0.78);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(4, 6, 13, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
-.settings__sheet {
+.dial__sheet {
   position: relative;
-  width: min(480px, 100%);
+  width: min(640px, 100%);
+  max-height: 86vh;
+  overflow-y: auto;
   background: var(--void-2);
   border: 1px solid rgba(245, 239, 226, 0.18);
-  padding: clamp(28px, 4vw, 44px);
+  padding: clamp(28px, 4vw, 48px);
   display: grid;
-  gap: 18px;
+  gap: 22px;
   color: var(--vellum);
   transform: translateY(8px);
   transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-.settings:not([hidden]) .settings__sheet { transform: none; }
+.dial:not([hidden]) .dial__sheet { transform: none; }
 
-.settings__head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 16px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(245, 239, 226, 0.15);
-}
-.settings__pill {
-  font-family: var(--mono);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-  color: var(--amber);
-}
-.settings__title {
-  margin: 0;
-  font-family: var(--display);
-  font-size: clamp(22px, 2.4vw, 30px);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--vellum);
-}
-.settings__intro {
-  margin: 0;
-  font-family: var(--sans);
-  font-size: 15px;
-  line-height: 1.5;
-  color: var(--vellum);
-  opacity: 0.85;
-}
-.settings__intro a { color: var(--amber); }
-
-.settings__field {
-  display: grid;
-  gap: 8px;
-}
-.settings__field label {
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.26em;
-  text-transform: uppercase;
-  color: var(--amber);
-  opacity: 0.95;
-}
-.settings__field input {
-  appearance: none;
-  background: var(--void);
-  border: 1px solid rgba(245, 239, 226, 0.3);
-  color: var(--vellum);
-  padding: 14px 16px;
-  font-family: var(--mono);
-  font-size: 14px;
-  letter-spacing: 0.06em;
-  outline: none;
-  transition: border-color 200ms ease;
-}
-.settings__field input:focus { border-color: var(--amber); }
-.settings__hint {
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  opacity: 0.55;
-}
-
-.settings__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 6px;
-}
-.settings__btn {
-  appearance: none;
-  background: transparent;
-  border: 1px solid rgba(245, 239, 226, 0.35);
-  color: var(--vellum);
-  padding: 12px 22px;
-  font-family: var(--mono);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.26em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all 220ms ease;
-}
-.settings__btn:hover { background: rgba(245, 239, 226, 0.08); }
-.settings__btn--primary {
-  border-color: var(--amber);
-  color: var(--amber);
-}
-.settings__btn--primary:hover {
-  background: var(--amber);
-  color: var(--void);
-}
-
-.settings__close {
+.dial__close {
   position: absolute;
-  top: 14px; right: 14px;
+  top: 16px; right: 16px;
   width: 36px; height: 36px;
   background: transparent;
   border: 1px solid rgba(245, 239, 226, 0.25);
@@ -836,8 +802,106 @@ kbd {
   cursor: pointer;
   font-size: 22px;
   line-height: 1;
+  transition: all 200ms ease;
 }
-.settings__close:hover { background: rgba(245, 239, 226, 0.08); }
+.dial__close:hover { background: rgba(245, 239, 226, 0.08); }
+
+.dial__head { display: grid; gap: 10px; }
+.dial__pill {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.dial__title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(28px, 3.4vw, 44px);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vellum);
+}
+.dial__intro {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+  opacity: 0.8;
+  max-width: 520px;
+}
+
+.dial__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.dial__row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 16px;
+  background: rgba(245, 239, 226, 0.025);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 220ms ease;
+  width: 100%;
+  appearance: none;
+  color: inherit;
+  text-align: left;
+}
+.dial__row:hover {
+  background: rgba(232, 116, 59, 0.08);
+  border-color: rgba(232, 116, 59, 0.4);
+}
+.dial__row.is-current {
+  background: rgba(232, 116, 59, 0.15);
+  border-color: var(--amber);
+}
+.dial__num {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--amber);
+  opacity: 0.9;
+  min-width: 36px;
+}
+.dial__row.is-current .dial__num {
+  color: var(--vellum);
+}
+.dial__meta { display: grid; gap: 2px; }
+.dial__sname {
+  font-family: var(--display);
+  font-size: clamp(16px, 1.8vw, 22px);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vellum);
+  line-height: 1.1;
+}
+.dial__sera {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--vellum);
+  opacity: 0.6;
+}
+.dial__playing {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--amber);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+.dial__row.is-current .dial__playing { opacity: 1; }
 
 /* =================================================================
    TOAST

@@ -1,17 +1,29 @@
 // =================================================================
-// Entry point: APOD + Three.js + controls + UI + audio
+// Entry point: APOD JSON + Three.js + controls + UI + radio
 // =================================================================
 
 import { buildGallery, loadApodTexture } from "./scene.js";
 import { attachControls } from "./controls.js";
 import { createUI } from "./ui.js";
 import { fetchApod } from "./apod.js";
-import { createSoundtrack } from "./audio.js";
+import { createRadio, STATIONS } from "./audio.js";
 
 const ui = createUI();
 const canvas = document.getElementById("stage");
 const gallery = buildGallery(canvas);
-const soundtrack = createSoundtrack();
+const radio = createRadio();
+
+ui.buildDialList(STATIONS, radio.getStationIndex(), (i) => {
+  radio.setStation(i);
+  if (!radio.isPlaying()) radio.start();
+});
+ui.setRadioStation({
+  stationIndex: radio.getStationIndex(),
+  station: radio.getStation(),
+  isPlaying: false,
+});
+
+radio.onChange((info) => ui.setRadioStation(info));
 
 ui.setBootProgress(0.12);
 
@@ -19,11 +31,8 @@ let currentApod = null;
 let promptVisible = false;
 
 function openReaderIfReady() {
-  if (currentApod) {
-    ui.openReader(currentApod);
-  } else {
-    ui.showToast("Exhibit data still loading — give it a moment.", 3000);
-  }
+  if (currentApod) ui.openReader(currentApod);
+  else ui.showToast("Exhibit data still loading — give it a moment.", 3000);
 }
 
 const controls = attachControls({
@@ -31,9 +40,7 @@ const controls = attachControls({
   renderer: gallery.renderer,
   gallery: gallery.gallery,
   onInteract: () => {
-    if (!ui.isReaderOpen() && controls.isNearExhibit()) {
-      openReaderIfReady();
-    }
+    if (!ui.isReaderOpen() && controls.isNearExhibit()) openReaderIfReady();
   },
   onLockChange: (locked) => {
     if (!controls.isMobile) ui.showLockHint(!locked);
@@ -42,13 +49,13 @@ const controls = attachControls({
 
 if (!controls.isMobile) ui.showLockHint(true);
 
-// Click handler on the on-screen prompt — backup to the E key.
-ui.onPromptClick(() => openReaderIfReady());
+ui.onPromptClick(openReaderIfReady);
 
-// Audio toggle. start() requires a user gesture, which the button click is.
-ui.onAudioToggle(() => soundtrack.toggle());
+ui.onRadioPrev(() => radio.prev());
+ui.onRadioNext(() => radio.next());
+ui.onRadioToggle(() => radio.toggle());
 
-// Begin fetching APOD immediately (in parallel with boot).
+// ---------- load APOD data (local JSON) ----------
 fetchApod()
   .then(async (apod) => {
     currentApod = apod;
@@ -57,11 +64,9 @@ fetchApod()
 
     ui.setHudDate(apod.date);
     ui.setHudTitle(apod.title);
-    ui.setHudCredit(apod.copyright ? `Image · ${apod.copyright}` : "Image · NASA / APOD");
+    ui.setHudCredit(apod.credit ? `Image · ${apod.credit}` : "Image · NASA / APOD");
 
-    if (apod.fallbackNote) {
-      ui.showToast(apod.fallbackNote, 7000);
-    }
+    if (apod.fallbackNote) ui.showToast(apod.fallbackNote, 7000);
 
     try {
       const texture = await loadApodTexture(apod.imageUrl);
@@ -69,16 +74,14 @@ fetchApod()
       ui.advanceFeed();
       ui.setBootProgress(1);
       ui.bootReady();
-      ui.setHudStatus("Link nominal");
     } catch (error) {
       console.warn("APOD texture failed to load", error);
-      ui.setHudStatus("Image link degraded");
       ui.showToast("Couldn't load today's image — entering anyway.", 7000);
       ui.bootReady();
     }
   });
 
-// Auto-enter after 14 seconds if user is idle.
+// Auto-enter after 14s of idle.
 const autoEnterTimer = setTimeout(() => {
   document.getElementById("boot-enter")?.click();
 }, 14000);
@@ -86,20 +89,17 @@ const autoEnterTimer = setTimeout(() => {
 ui.onEnter(() => {
   clearTimeout(autoEnterTimer);
 
-  // Start the soundtrack on the same gesture (browsers require this).
-  soundtrack.start();
-  ui.setAudioActive(true);
+  // Browsers require a user gesture to start audio. The enter click works.
+  radio.start();
 
-  if (!controls.isMobile) {
-    setTimeout(() => controls.tryLock(), 300);
-  }
+  if (!controls.isMobile) setTimeout(() => controls.tryLock(), 300);
 });
 
 function tick() {
   controls.update();
   gallery.update();
 
-  const near = controls.isNearExhibit() && !ui.isReaderOpen() && !ui.isSettingsOpen();
+  const near = controls.isNearExhibit() && !ui.isReaderOpen() && !ui.isDialOpen();
   if (near !== promptVisible) {
     promptVisible = near;
     ui.showInteractPrompt(near);
@@ -108,11 +108,3 @@ function tick() {
   requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);
-
-window.addEventListener("blur", () => ui.setHudStatus("Telemetry idle"));
-window.addEventListener("focus", () => ui.setHudStatus("Link nominal"));
-
-// #settings in the URL pops the settings panel as soon as the HUD is up.
-if (location.hash === "#settings") {
-  setTimeout(() => ui.openSettings(), 100);
-}

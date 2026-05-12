@@ -115,25 +115,28 @@
       </div>
 
       <div class="hud__corner hud__corner--br">
-        <span class="hud__pulse" aria-hidden="true"></span>
-        <span class="hud__label hud__label--right">Mission Control</span>
-        <span class="hud__sub hud__sub--right" id="hud-status">Link nominal</span>
-      </div>
-
-      <div class="hud__actions">
-        <button id="hud-audio" class="hud__btn" type="button" aria-label="Toggle ambient soundtrack" title="Toggle ambient soundtrack">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M4 9 H7 L12 5 V19 L7 15 H4 Z"/>
-            <path class="audio-wave" d="M16 8.5 Q19 12 16 15.5"/>
-            <path class="audio-wave" d="M18.5 6 Q22.5 12 18.5 18"/>
-          </svg>
-        </button>
-        <button id="hud-settings" class="hud__btn" type="button" aria-label="Settings" title="Settings · API key">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </svg>
-        </button>
+        <div class="radio" id="radio">
+          <div class="radio__head">
+            <span class="hud__label hud__label--right">Mission Control · Radio</span>
+            <span class="radio__channel" id="radio-channel">CH 01 / 10</span>
+          </div>
+          <button class="radio__station" id="radio-station-name" type="button" title="Open the radio dial">
+            <span class="radio__name" id="radio-name">— off air —</span>
+            <span class="radio__era" id="radio-era">press play</span>
+          </button>
+          <div class="radio__controls">
+            <button class="radio__btn" id="radio-prev" type="button" aria-label="Previous station">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5 L7 12 L16 19 Z M5 5 L5 19" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="radio__btn radio__btn--play" id="radio-toggle" type="button" aria-label="Toggle soundtrack" aria-pressed="false">
+              <svg class="radio__icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5 L19 12 L7 19 Z" fill="currentColor"/></svg>
+              <svg class="radio__icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5 L10 5 L10 19 L7 19 Z M14 5 L17 5 L17 19 L14 19 Z" fill="currentColor"/></svg>
+            </button>
+            <button class="radio__btn" id="radio-next" type="button" aria-label="Next station">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5 L17 12 L8 19 Z M19 5 L19 19" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
       </div>
 
       <button class="hud__center" id="hud-prompt" type="button" hidden>
@@ -179,35 +182,18 @@
     </aside>
 
     <!-- ============================================================ -->
-    <!-- Settings panel (NASA API key)                                 -->
+    <!-- Radio dial (full station list)                                -->
     <!-- ============================================================ -->
-    <aside id="settings" class="settings" hidden aria-modal="true" role="dialog">
-      <div class="settings__scrim"></div>
-      <div class="settings__sheet">
-        <button id="settings-close" class="settings__close" type="button" aria-label="Close settings">×</button>
-        <header class="settings__head">
-          <span class="settings__pill">Mission Control</span>
+    <aside id="dial" class="dial" hidden aria-modal="true" role="dialog" aria-label="Radio stations">
+      <div class="dial__scrim"></div>
+      <div class="dial__sheet">
+        <button id="dial-close" class="dial__close" type="button" aria-label="Close dial">×</button>
+        <header class="dial__head">
+          <span class="dial__pill">Mission Control · Radio</span>
+          <h2 class="dial__title">Tune the Dial</h2>
+          <p class="dial__intro">Ten procedurally-generated lo-fi stations. Each is composed from a unique scale, waveform, and atmosphere. Pick one — they fade between each other.</p>
         </header>
-
-        <h2 class="settings__title">Use Your Own NASA Key</h2>
-
-        <p class="settings__intro">
-          NASA's shared <code>DEMO_KEY</code> is throttled to ~30 requests per hour.
-          Grab a free personal key at
-          <a href="https://api.nasa.gov" target="_blank" rel="noopener">api.nasa.gov</a>
-          and paste it below for unlimited daily curation.
-        </p>
-
-        <div class="settings__field">
-          <label for="settings-key">API Key</label>
-          <input id="settings-key" type="text" autocomplete="off" spellcheck="false" placeholder="DEMO_KEY" />
-          <span class="settings__hint" id="settings-status">Currently using shared DEMO_KEY</span>
-        </div>
-
-        <div class="settings__actions">
-          <button id="settings-clear" class="settings__btn" type="button">Reset</button>
-          <button id="settings-save" class="settings__btn settings__btn--primary" type="button">Save &amp; Reload</button>
-        </div>
+        <ul class="dial__list" id="dial-list"></ul>
       </div>
     </aside>
 
