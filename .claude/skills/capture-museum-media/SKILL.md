@@ -192,16 +192,17 @@ await rename(videoPath, resolve(OUT, 'walkthrough.webm'));
 console.log(resolve(OUT, 'walkthrough.webm'));
 ```
 
-**Run + convert + bump fps**:
+**Run + trim + interpolate + encode**:
+
+The script prints `TRIM_MS=<n>` representing how long the page took to fully settle before the visible hover began. Pass that as `-ss` to ffmpeg so the final MP4 starts on the stable, already-rendered boot screen (no logo settle, no telemetry typing, no layout shift).
 
 ```bash
-(cd "$PW_HOME" && node capture-walkthrough.mjs)
+TRIM_MS=$(cd "$PW_HOME" && node capture-walkthrough.mjs | grep TRIM_MS | cut -d= -f2)
+TRIM_SECONDS=$(echo "scale=3; $TRIM_MS/1000" | bc)
 
-# Convert to H.264 MP4 at 60fps. Playwright records at 25fps (no public
-# API option to change it), so we use ffmpeg's motion-compensated
-# interpolation to synthesize true intermediate frames. The eased camera
-# tweens read much smoother at 60 than at 25.
-ffmpeg -i /tmp/walkthrough-out/walkthrough.webm \
+# 1) trim the unstable opening, 2) interpolate 25→60 fps (mci+bidir),
+# 3) encode as H.264 MP4 for portfolio embedding.
+ffmpeg -ss "$TRIM_SECONDS" -i /tmp/walkthrough-out/walkthrough.webm \
   -vf "minterpolate=fps=60:mi_mode=mci:mc_mode=aobmc:me_mode=bidir" \
   -c:v libx264 -crf 22 -preset slow -pix_fmt yuv420p -movflags +faststart -an \
   -y /Users/ethan/Projects/Misc-Experiments/NASA-APOD-Showcase-01/media/walkthrough.mp4
@@ -211,8 +212,9 @@ trash /tmp/walkthrough-out
 
 Why this path:
 - `playwright-cli`'s `video-start` records at a fixed 800×450 and pads the right with a gray strip — no flag to change it. The Node API exposes `recordVideo.size`, the only way to get a usable resolution.
-- The Node script also lets us add eased camera tweens (impossible in the chained-eval approach without timing precision).
-- Playwright's video output is locked at 25fps. `minterpolate` with `mci` (motion-compensated interpolation) synthesizes true intermediate frames using bidirectional motion estimation — buttery for the camera pans, no obvious artifacts for the modal open/close transitions in our flow.
+- The Node script also lets us add eased camera tweens (impossible in the chained-eval approach without timing precision) and a deliberate `page.hover('#boot-enter')` for the amber highlight before click.
+- Recording starts the moment `context.newPage()` runs, capturing the boot screen's settle (telemetry typing, layout shift, button disabled→enabled). The script logs `TRIM_MS` at the exact instant the page is stable, so ffmpeg can trim from there.
+- Playwright's video output is locked at 25fps. `minterpolate` with `mci` (motion-compensated, bidirectional motion estimation) synthesizes true intermediate frames — buttery for the camera pans, no visible artifacts at the modal transitions in our flow.
 
 ## Notes on element refs
 
