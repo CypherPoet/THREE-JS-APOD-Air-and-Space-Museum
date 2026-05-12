@@ -30,6 +30,13 @@ badges:
     logoColor: "000000"
     color: FFDD00
 
+  - name: Linktree
+    logo: linktree
+    label: Linktree
+    url: https://linktr.ee/CypherPoet
+    logoColor: white
+    color: "43E660"
+
   - name: MIT License
     logo: opensourceinitiative
     label: MIT License
