@@ -84,10 +84,15 @@ fetchApod()
     }
   });
 
-// Auto-enter after 14s of idle.
-const autoEnterTimer = setTimeout(() => {
-  document.getElementById("boot-enter")?.click();
-}, 14000);
+// Auto-enter after 14s of idle — desktop only. A synthetic click from
+// setTimeout is not a user activation on iOS Safari, so resuming the
+// AudioContext from that path leaves it suspended and the gallery silent.
+// On mobile we wait for a real tap.
+const autoEnterTimer = controls.isMobile
+  ? undefined
+  : setTimeout(() => {
+      document.getElementById("boot-enter")?.click();
+    }, 14000);
 
 ui.onEnter(() => {
   clearTimeout(autoEnterTimer);
@@ -97,6 +102,16 @@ ui.onEnter(() => {
 
   if (!controls.isMobile) setTimeout(() => controls.tryLock(), 300);
 });
+
+// Safety net: if the AudioContext is still suspended after boot (e.g. iOS
+// after Siri/phone-call interruption, or a future regression in the boot
+// path), the next real user pointer event unlocks it. radio.start() is
+// idempotent — the internal `started` flag guards chain construction.
+window.addEventListener(
+  "pointerdown",
+  () => { if (radio.isSuspended()) radio.start(); },
+  { once: true, passive: true },
+);
 
 // ---------- Easter-egg raycast: looking at the mug ----------
 const worldHint = document.getElementById("world-hint");

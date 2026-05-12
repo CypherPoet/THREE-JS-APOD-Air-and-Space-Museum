@@ -422,6 +422,7 @@ export function createRadio() {
   function getStation() { return STATIONS[stationIndex]; }
   function isPlaying() { return started && !muted; }
   function isReady() { return Boolean(ctx); }
+  function isSuspended() { return ctx ? ctx.state === "suspended" : true; }
 
   function onChange(fn) {
     listeners.add(fn);
@@ -437,6 +438,6 @@ export function createRadio() {
 
   return {
     start, mute, toggle, next, prev, setStation,
-    getStationIndex, getStation, isPlaying, isReady, onChange,
+    getStationIndex, getStation, isPlaying, isReady, isSuspended, onChange,
   };
 }
