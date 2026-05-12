@@ -1,8 +1,8 @@
-# Local Claude state — ignore everything except the project skills.
-# All skills under .claude/skills/ ship with the repo, so anyone who
-# clones inherits the same developer-environment tooling.
-.claude/*
-!.claude/skills/
+# Claude config — track by default. Opt specific paths out below as
+# they prove to be machine-specific or otherwise not shareable.
+.claude/handoffs/
+.claude/settings.local.json
+.claude/projects/
 
 # macOS
 .DS_Store
