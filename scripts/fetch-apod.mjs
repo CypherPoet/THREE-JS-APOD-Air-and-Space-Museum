@@ -3,27 +3,37 @@
 // fetch-apod.mjs
 //
 // Scrapes https://apod.nasa.gov/apod/astropix.html, parses its
-// (gloriously simple) HTML, and writes:
-//   - data/apod.json  (structured metadata)
-//   - data/apod.jpg   (the day's image, downloaded for self-hosting)
+// (gloriously simple) HTML, and writes to an append-only archive:
+//
+//   data/
+//   ├── manifest.json                  { latest: YYYY-MM-DD, entries: [...] }
+//   └── archive/
+//       ├── YYYY-MM-DD.json            (structured metadata)
+//       └── YYYY-MM-DD.jpg             (compressed image for that day)
+//
+// Running this multiple times for the same day overwrites that day's
+// pair but never touches other days. The manifest stays sorted newest
+// first so the frontend just reads `entries[0]` (or `latest`) to find
+// today's exhibit.
 //
 // Used by:
-//   - npm-less local seeding (`node scripts/fetch-apod.mjs`)
+//   - local refresh (`node scripts/fetch-apod.mjs`)
 //   - .github/workflows/refresh-apod.yml (daily cron)
 //
 // Pass `--from=path/to/file.html` to parse a local HTML file instead
 // of fetching the live page (handy for testing).
 // =================================================================
 
-import { mkdir, writeFile, stat } from "node:fs/promises";
+import { mkdir, readFile, writeFile, stat, readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, "..");
 const DATA_DIR = resolve(PROJECT_ROOT, "data");
+const ARCHIVE_DIR = resolve(DATA_DIR, "archive");
+const MANIFEST_PATH = resolve(DATA_DIR, "manifest.json");
 
 const APOD_URL = "https://apod.nasa.gov/apod/astropix.html";
 const APOD_BASE = "https://apod.nasa.gov/apod/";
@@ -38,37 +48,71 @@ async function main() {
 
   console.log("> parsing…");
   const parsed = parseApod(html);
+  const dateKey = parsed.date; // already in YYYY-MM-DD form
 
   console.log(`> title:  ${parsed.title}`);
-  console.log(`> date:   ${parsed.date}`);
+  console.log(`> date:   ${dateKey}`);
   console.log(`> image:  ${parsed.image_url}`);
 
   console.log("> downloading image…");
   const imageBytes = await fetchBytes(parsed.image_url);
   console.log(`> raw image: ${(imageBytes.length / 1024).toFixed(1)} KB`);
 
-  await mkdir(DATA_DIR, { recursive: true });
-  const targetPath = resolve(DATA_DIR, "apod.jpg");
-  await writeFile(targetPath, imageBytes);
+  await mkdir(ARCHIVE_DIR, { recursive: true });
+  const jpegPath = resolve(ARCHIVE_DIR, `${dateKey}.jpg`);
+  await writeFile(jpegPath, imageBytes);
 
-  // Resize + compress so the committed image stays small (~300-600 KB).
-  // Tries ImageMagick first (cross-platform), then macOS's sips.
-  const compressed = compressImage(targetPath, 2400, 86);
-  const finalSize = (await stat(targetPath)).size;
+  // Resize + compress so each committed image stays small (~300-600 KB).
+  const compressed = compressImage(jpegPath, 2400, 86);
+  const finalSize = (await stat(jpegPath)).size;
   console.log(`> final image (${compressed}): ${(finalSize / 1024).toFixed(1)} KB`);
 
-  const data = {
+  const entry = {
     ...parsed,
-    image_local: "data/apod.jpg",
     image_bytes: finalSize,
     fetched_at: new Date().toISOString(),
   };
-  await writeFile(
-    resolve(DATA_DIR, "apod.json"),
-    JSON.stringify(data, null, 2) + "\n",
-  );
+  const entryPath = resolve(ARCHIVE_DIR, `${dateKey}.json`);
+  await writeFile(entryPath, JSON.stringify(entry, null, 2) + "\n");
 
-  console.log(`> wrote data/apod.json + data/apod.jpg`);
+  // ----------------------------------------------------------------
+  // Rebuild the manifest by scanning data/archive/ for every dated
+  // JSON file. This makes the script self-healing: drop a file in by
+  // hand and the next run picks it up automatically.
+  // ----------------------------------------------------------------
+  const scanned = await scanArchive(ARCHIVE_DIR);
+  const manifest = {
+    latest: scanned[0] || dateKey,
+    entries: scanned,
+    updated_at: new Date().toISOString(),
+  };
+  await writeFile(MANIFEST_PATH, JSON.stringify(manifest, null, 2) + "\n");
+
+  console.log(`> archive now holds ${manifest.entries.length} entr${manifest.entries.length === 1 ? "y" : "ies"}`);
+  console.log(`> latest: ${manifest.latest}`);
+}
+
+async function scanArchive(dir) {
+  // Return every YYYY-MM-DD that has BOTH a .json and .jpg sibling,
+  // newest first. Stray files (orphan .json or .jpg) are ignored.
+  let names;
+  try {
+    names = await readdir(dir);
+  } catch {
+    return [];
+  }
+  const haveJson = new Set();
+  const haveJpg = new Set();
+  for (const name of names) {
+    const match = name.match(/^(\d{4}-\d{2}-\d{2})\.(json|jpg)$/i);
+    if (!match) continue;
+    if (match[2].toLowerCase() === "json") haveJson.add(match[1]);
+    else haveJpg.add(match[1]);
+  }
+  return [...haveJson]
+    .filter((date) => haveJpg.has(date))
+    .sort()
+    .reverse();
 }
 
 function compressImage(path, maxWidth, quality) {

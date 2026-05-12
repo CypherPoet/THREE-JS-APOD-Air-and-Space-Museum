@@ -1,16 +1,20 @@
 // =================================================================
-// APOD loader — reads from the locally-cached data/apod.json
+// APOD loader — reads the append-only archive under data/
 // =================================================================
-// A GitHub Action (.github/workflows/refresh-apod.yml) scrapes
-// apod.nasa.gov daily, compresses the image, and commits the updated
-// data/ files. GitHub Pages auto-deploys, so the client just reads
-// from the same origin — no API keys, no CORS proxy.
+// Layout:
+//   data/manifest.json                 { latest, entries: [YYYY-MM-DD…] }
+//   data/archive/<YYYY-MM-DD>.json     parsed metadata
+//   data/archive/<YYYY-MM-DD>.jpg      compressed image
 //
-// If the JSON or image is missing, we fall back to an archive entry.
+// The frontend reads `manifest.latest` and pulls that day's pair.
+// No NASA API key, no CORS proxy — everything is same-origin.
+//
+// A GitHub Action (.github/workflows/refresh-apod.yml) appends a new
+// entry every morning and updates the manifest.
 // =================================================================
 
-const DATA_URL = "./data/apod.json";
-const IMAGE_URL = "./data/apod.jpg";
+const MANIFEST_URL = "./data/manifest.json";
+const ARCHIVE_BASE = "./data/archive";
 
 const ARCHIVE_FALLBACK = {
   title: "Pillars of Creation",
@@ -26,17 +30,23 @@ const ARCHIVE_FALLBACK = {
 
 export async function fetchApod() {
   try {
-    const response = await fetch(DATA_URL, { cache: "no-cache" });
-    if (!response.ok) throw new Error(`${response.status}`);
-    const data = await response.json();
-    return normalize(data);
+    const manifest = await fetchJson(MANIFEST_URL);
+    if (!manifest.latest) throw new Error("manifest has no `latest`");
+    const entry = await fetchJson(`${ARCHIVE_BASE}/${manifest.latest}.json`);
+    return normalize(entry);
   } catch (error) {
-    console.warn("APOD JSON unavailable; using archive fallback", error);
+    console.warn("APOD archive unavailable; using fallback", error);
     return {
       ...ARCHIVE_FALLBACK,
       fallbackNote: "Daily data unavailable — showing an archive favourite.",
     };
   }
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url, { cache: "no-cache" });
+  if (!response.ok) throw new Error(`${url} → ${response.status}`);
+  return response.json();
 }
 
 function normalize(entry) {
@@ -46,7 +56,7 @@ function normalize(entry) {
     explanation: entry.explanation || "",
     credit: entry.credit || "",
     copyright: entry.credit || entry.copyright || "",
-    imageUrl: IMAGE_URL,         // the locally-cached image
+    imageUrl: `${ARCHIVE_BASE}/${entry.date}.jpg`,
     sourceImageUrl: entry.image_url || "",
     mediaType: "image",
     originalUrl: entry.original_url || "https://apod.nasa.gov/apod/astropix.html",

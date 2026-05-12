@@ -1,8 +1,8 @@
 # Air & Space Museum · A NASA APOD Showcase
 
-[![Live](https://img.shields.io/badge/Live-cypherpoet.github.io-e8743b?style=flat-square)](https://cypherpoet.github.io/THREE-JS-APOD-Air-and-Space-Museum/)
-[![Built with](https://img.shields.io/badge/Built_with-Three.js-f5efe2?style=flat-square)](https://threejs.org/)
-[![Source](https://img.shields.io/badge/Source-APOD-5fb3c1?style=flat-square)](https://apod.nasa.gov/apod/astropix.html)
+[![X](https://img.shields.io/badge/%40cypher__poet-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/cypher_poet) [![PayPal](https://img.shields.io/badge/PayPal-003087?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.com/ncp/payment/L6M553P28YPDY) [![Cash App](https://img.shields.io/badge/Cash_App-00C244?style=for-the-badge&logo=cashapp&logoColor=white)](https://cash.app/$CypherPoet) [![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=000000)](https://buymeacoffee.com/cypherpoet) [![Linktree](https://img.shields.io/badge/Linktree-43E660?style=for-the-badge&logo=linktree&logoColor=white)](https://linktr.ee/CypherPoet) [![MIT License](https://img.shields.io/badge/MIT_License-ff7300?style=for-the-badge&logo=opensourceinitiative&logoColor=000000)](https://github.com/CypherPoet/THREE-JS-APOD-Air-and-Space-Museum/blob/main/LICENSE)
+
+[![Live](https://img.shields.io/badge/Live-cypherpoet.github.io-e8743b?style=for-the-badge&logo=githubpages&logoColor=white)](https://cypherpoet.github.io/THREE-JS-APOD-Air-and-Space-Museum/) [![Built with](https://img.shields.io/badge/Built_with-Three.js-f5efe2?style=for-the-badge&logo=threedotjs&logoColor=04060d)](https://threejs.org/) [![Source](https://img.shields.io/badge/Source-APOD-5fb3c1?style=for-the-badge&logo=nasa&logoColor=white)](https://apod.nasa.gov/apod/astropix.html)
 
 ![Air & Space Museum — Gallery view with HUD chrome](media/02-gallery.png)
 
@@ -41,7 +41,8 @@ There's also a recorded walkthrough at [`media/walkthrough.webm`](media/walkthro
 │              ├── fetch apod.nasa.gov/astropix.html           │
 │              ├── parse title / date / credit / explanation   │
 │              ├── download HD image, magick → ~250 KB JPEG    │
-│              └── write data/apod.json + data/apod.jpg        │
+│              ├── append data/archive/<date>.{json,jpg}       │
+│              └── update data/manifest.json (latest, entries) │
 │                        ↓ git commit + push                   │
 │  GitHub Pages auto-deploys                                   │
 └──────────────────────────────────────────────────────────────┘
@@ -49,7 +50,7 @@ There's also a recorded walkthrough at [`media/walkthrough.webm`](media/walkthro
 ┌──────────────────────────────────────────────────────────────┐
 │  Browser (index.html — no build step, no bundler)            │
 │      ├── importmap → Three.js r169 from unpkg                │
-│      ├── src/apod.js     fetch('./data/apod.json')           │
+│      ├── src/apod.js     manifest.latest → archive/<date>    │
 │      ├── src/scene.js    starfield + pillars + plinth + mug  │
 │      ├── src/controls.js PointerLockControls + WASD          │
 │      ├── src/audio.js    WebAudio ten-station radio          │
@@ -99,13 +100,15 @@ node scripts/fetch-apod.mjs
 │   ├── scene.js                     — Three.js scene + the coffee mug
 │   ├── controls.js                  — PointerLockControls + collisions
 │   ├── audio.js                     — procedural ten-station radio
-│   ├── apod.js                      — fetches data/apod.json
+│   ├── apod.js                      — manifest.json → latest archive entry
 │   └── ui.js                        — boot, HUD, reader, dial, toast
 ├── scripts/
 │   └── fetch-apod.mjs               — APOD scraper (Node, no deps)
 ├── data/
-│   ├── apod.json                    — today's metadata
-│   └── apod.jpg                     — today's image (compressed)
+│   ├── manifest.json                — { latest, entries: […] }
+│   └── archive/
+│       ├── YYYY-MM-DD.json          — one parsed entry per day
+│       └── YYYY-MM-DD.jpg           — matching compressed image
 ├── media/                           — screenshots + walkthrough
 ├── .claude/
 │   └── skills/
@@ -125,7 +128,7 @@ node scripts/fetch-apod.mjs
 
 ## License
 
-Source code in this repo is MIT-licensed for personal/educational use. Imagery and explanatory text fetched from APOD are owned by their respective credited authors — see each day's `data/apod.json` for attribution; visit `original_url` for the canonical source.
+Source code in this repo is MIT-licensed for personal/educational use. Imagery and explanatory text fetched from APOD are owned by their respective credited authors — see each day's `data/archive/<YYYY-MM-DD>.json` for attribution; visit `original_url` for the canonical source.
 
 ---
 
