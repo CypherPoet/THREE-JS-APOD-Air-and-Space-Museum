@@ -117,12 +117,22 @@ function updateMugFocus() {
   }
 }
 
-// Click anywhere while the mug is focused → open BMC.
-// (We ignore the very first click since it's used to engage pointer lock.)
+// Click on the mug to open BMC — but only when the user is already
+// engaged with the scene (pointer-locked on desktop, or on mobile).
+// Otherwise the click that re-engages pointer lock after returning
+// from BMC would immediately re-fire and trap the user in a loop.
 window.addEventListener("click", () => {
-  if (lookingAtMug) {
-    window.open(BMC_URL, "_blank", "noopener");
-  }
+  if (!lookingAtMug) return;
+  if (!controls.isLocked && !controls.isMobile) return;
+  window.open(BMC_URL, "_blank", "noopener");
+});
+
+// When focus leaves the tab (e.g. opening BMC), held keys never fire
+// their keyup event — so on return the camera can drift forever. Clear
+// the held-keys set so movement stops cleanly.
+window.addEventListener("blur", () => controls.clearKeys());
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) controls.clearKeys();
 });
 
 // Expose a minimal debug handle for headless screenshotting.

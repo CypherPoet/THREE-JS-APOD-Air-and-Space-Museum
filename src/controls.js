@@ -192,5 +192,7 @@ export function attachControls({ camera, renderer, gallery, onInteract, onLockCh
     isNearExhibit,
     tryLock,
     get isMobile() { return isMobile; },
+    get isLocked() { return controls.isLocked; },
+    clearKeys: () => keys.clear(),
   };
 }
