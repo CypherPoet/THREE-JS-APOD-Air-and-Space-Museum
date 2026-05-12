@@ -40,55 +40,45 @@ All written under `media/` in the project root:
 | `05-reader.png` | Curator's note (full APOD explanation) modal |
 | `06-hud-voyager.png` | Back in gallery with the new station playing |
 | `09-mug-easter-egg.png` | Close-up of the coffee-mug easter egg on the plinth |
-| `walkthrough.webm` | ~30 second recording of the whole tour |
+| `walkthrough.mp4` | ~15 second H.264 recording of the whole tour |
 
 ## Capture sequence
 
-Run these in order, reading every screenshot back with the Read tool to confirm composition before moving on.
+Two passes: screenshots first (analysis-friendly, can pause between shots), then the walkthrough video as a single tight chain (no pauses — the recording captures every second the playwright session is alive).
+
+### Pass 1 — Screenshots
 
 ```bash
 # Reset any prior session
 playwright-cli close-all 2>/dev/null
-
-# Start a fresh chrome session at 1920x1200
 playwright-cli open --browser=chrome
 playwright-cli resize 1920 1200
 
-# Begin recording the full walkthrough
-playwright-cli video-start /Users/ethan/Projects/Misc-Experiments/NASA-APOD-Showcase-01/media/walkthrough.webm
-
 # ---- BOOT ----
 playwright-cli goto "http://localhost:8767/?cb=$(date +%s)"
-# Wait for the APOD to load + the "Ready" state to appear (~2s).
 sleep 2
 playwright-cli screenshot --filename=/Users/ethan/Projects/Misc-Experiments/NASA-APOD-Showcase-01/media/01-boot.png
 
 # ---- GALLERY ----
-# Snapshot to grab the Enter button ref (changes per session).
-playwright-cli snapshot --raw 2>&1 | grep "Enter the Gallery" | head -1
-# Click the Enter button — replace eXX below with the ref from the line above.
-playwright-cli click eXX
+playwright-cli eval "() => document.getElementById('boot-enter').click()"
 sleep 3
 playwright-cli screenshot --filename=/Users/ethan/Projects/Misc-Experiments/NASA-APOD-Showcase-01/media/02-gallery.png
 
 # ---- RADIO DIAL ----
 playwright-cli snapshot --raw 2>&1 | grep "Cassini Drift Saturn" | head -1
-playwright-cli click eYY    # the station-name button in the radio widget
+playwright-cli click eYY    # station-name button — replace with current ref
 sleep 1
 playwright-cli screenshot --filename=/Users/ethan/Projects/Misc-Experiments/NASA-APOD-Showcase-01/media/03-dial.png
 
-# Switch to Voyager Echo (row 3) — grab its ref from a fresh snapshot
 playwright-cli snapshot --raw 2>&1 | grep "03 Voyager" | head -1
-playwright-cli click eZZ
+playwright-cli click eZZ    # replace with current ref
 sleep 1
 playwright-cli screenshot --filename=/Users/ethan/Projects/Misc-Experiments/NASA-APOD-Showcase-01/media/04-dial-voyager.png
 
 # ---- READER MODAL ----
 playwright-cli press Escape
 sleep 0.5
-# The interact prompt only shows when near the exhibit. Open the reader
-# directly via the click handler on the HUD prompt — calling it via DOM
-# is reliable in headless even when pointer-lock isn't engaged.
+# DOM-click the hud prompt — reliable in headless without pointer-lock.
 playwright-cli eval "() => document.getElementById('hud-prompt').click()"
 sleep 1
 playwright-cli screenshot --filename=/Users/ethan/Projects/Misc-Experiments/NASA-APOD-Showcase-01/media/05-reader.png
@@ -99,16 +89,42 @@ sleep 1
 playwright-cli screenshot --filename=/Users/ethan/Projects/Misc-Experiments/NASA-APOD-Showcase-01/media/06-hud-voyager.png
 
 # ---- MUG EASTER EGG ----
-# Reposition the camera onto the mug. The window.__museum debug handle
-# exposes { camera, mug } — exported from src/main.js for this purpose.
+# window.__museum.{camera,mug} is exported from src/main.js for this.
 playwright-cli eval "() => { const c = window.__museum.camera; c.position.set(1.6, 1.5, 1.9); c.lookAt(0.78, 1.18, 0.95); return 'ok'; }"
 sleep 0.6
 playwright-cli screenshot --filename=/Users/ethan/Projects/Misc-Experiments/NASA-APOD-Showcase-01/media/09-mug-easter-egg.png
 
-# ---- STOP RECORDING + CLOSE ----
-playwright-cli video-stop
 playwright-cli close
 ```
+
+### Pass 2 — Walkthrough video (chained, no pauses)
+
+Critical: the video is the full session lifetime. Issue every command in one chained Bash line so no analysis time sneaks into the recording.
+
+```bash
+playwright-cli close-all 2>/dev/null
+playwright-cli open --browser=chrome
+playwright-cli resize 1920 1200
+
+playwright-cli goto "http://localhost:8767/?cb=walkthrough" && sleep 1.5 && \
+playwright-cli video-start /tmp/walkthrough-raw.webm && sleep 1 && \
+playwright-cli eval "() => document.getElementById('boot-enter').click()" && sleep 3.2 && \
+playwright-cli eval "() => document.getElementById('hud-prompt').click()" && sleep 2.5 && \
+playwright-cli press Escape && sleep 1.4 && \
+playwright-cli eval "() => { const c = window.__museum.camera; c.position.set(1.6, 1.5, 1.9); c.lookAt(0.78, 1.18, 0.95); return 'ok'; }" && sleep 2.2 && \
+playwright-cli video-stop && playwright-cli close
+
+# Post-process: crop the right-side gray strip (playwright-cli's default
+# video is 800x450, ~80px gray padding on the right), re-encode as H.264 MP4.
+ffmpeg -i /tmp/walkthrough-raw.webm \
+  -vf "crop=720:450:0:0" \
+  -c:v libx264 -crf 23 -preset slow -pix_fmt yuv420p -movflags +faststart -an \
+  -y /Users/ethan/Projects/Misc-Experiments/NASA-APOD-Showcase-01/media/walkthrough.mp4
+
+trash /tmp/walkthrough-raw.webm
+```
+
+Why the post-process: playwright-cli records a fixed 800x450 webm regardless of the viewport size set by `resize`, and pads the right ~80px with a gray strip. ffmpeg crops to 720x450 (16:10, matching the viewport aspect) and re-encodes as H.264 in MP4 for broader compatibility (GitHub previews, iOS Safari, embed-friendly).
 
 ## Notes on element refs
 

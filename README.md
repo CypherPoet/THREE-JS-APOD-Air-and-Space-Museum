@@ -29,7 +29,7 @@ An interactive, walk-through Three.js gallery whose centrepiece is NASA's **Astr
 | ![Radio dial](media/03-dial.png) | ![Coffee mug easter egg](media/09-mug-easter-egg.png) |
 | The radio dial — all ten lo-fi stations | The hidden mug, glowing on the plinth |
 
-There's also a recorded walkthrough at [`media/walkthrough.webm`](media/walkthrough.webm).
+There's also a recorded walkthrough at [`media/walkthrough.mp4`](media/walkthrough.mp4).
 
 ## How it works
 
