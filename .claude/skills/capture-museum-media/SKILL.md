@@ -97,34 +97,115 @@ playwright-cli screenshot --filename=/Users/ethan/Projects/Misc-Experiments/NASA
 playwright-cli close
 ```
 
-### Pass 2 — Walkthrough video (chained, no pauses)
+### Pass 2 — Walkthrough video (Playwright Node API, 1280×800)
 
-Critical: the video is the full session lifetime. Issue every command in one chained Bash line so no analysis time sneaks into the recording.
+`playwright-cli` records at a fixed 800×450 with a right-side gray strip — too small for showcase use. Drop down to the Playwright Node API to get a real 1280×800 recording with smooth camera tweens.
+
+**One-time setup**: ensure Playwright is available via npx — running `npx playwright --version` installs it into `~/.npm/_npx/<hash>/node_modules/playwright`. Find the install dir:
 
 ```bash
-playwright-cli close-all 2>/dev/null
-playwright-cli open --browser=chrome
-playwright-cli resize 1920 1200
-
-playwright-cli goto "http://localhost:8767/?cb=walkthrough" && sleep 1.5 && \
-playwright-cli video-start /tmp/walkthrough-raw.webm && sleep 1 && \
-playwright-cli eval "() => document.getElementById('boot-enter').click()" && sleep 3.2 && \
-playwright-cli eval "() => document.getElementById('hud-prompt').click()" && sleep 2.5 && \
-playwright-cli press Escape && sleep 1.4 && \
-playwright-cli eval "() => { const c = window.__museum.camera; c.position.set(1.6, 1.5, 1.9); c.lookAt(0.78, 1.18, 0.95); return 'ok'; }" && sleep 2.2 && \
-playwright-cli video-stop && playwright-cli close
-
-# Post-process: crop the right-side gray strip (playwright-cli's default
-# video is 800x450, ~80px gray padding on the right), re-encode as H.264 MP4.
-ffmpeg -i /tmp/walkthrough-raw.webm \
-  -vf "crop=720:450:0:0" \
-  -c:v libx264 -crf 23 -preset slow -pix_fmt yuv420p -movflags +faststart -an \
-  -y /Users/ethan/Projects/Misc-Experiments/NASA-APOD-Showcase-01/media/walkthrough.mp4
-
-trash /tmp/walkthrough-raw.webm
+find ~/.npm/_npx -name playwright -type d -maxdepth 4 | head -1
+# → /Users/ethan/.npm/_npx/<hash>/node_modules/playwright
+# Use the parent of that as PW_HOME below.
+PW_HOME=$(dirname $(dirname $(find ~/.npm/_npx -name playwright -type d -maxdepth 4 | head -1)))
 ```
 
-Why the post-process: playwright-cli records a fixed 800x450 webm regardless of the viewport size set by `resize`, and pads the right ~80px with a gray strip. ffmpeg crops to 720x450 (16:10, matching the viewport aspect) and re-encodes as H.264 in MP4 for broader compatibility (GitHub previews, iOS Safari, embed-friendly).
+**Write the capture script** to `$PW_HOME/capture-walkthrough.mjs` so its `import 'playwright'` resolves naturally:
+
+```js
+import { chromium } from 'playwright';
+import { mkdir, rename, rm } from 'node:fs/promises';
+import { resolve } from 'node:path';
+
+const OUT = '/tmp/walkthrough-out';
+await rm(OUT, { recursive: true, force: true });
+await mkdir(OUT, { recursive: true });
+
+const browser = await chromium.launch({ headless: true });
+const context = await browser.newContext({
+  viewport: { width: 1920, height: 1200 },
+  recordVideo: { dir: OUT, size: { width: 1280, height: 800 } },
+});
+const page = await context.newPage();
+
+// Smooth camera tween helper — interpolates position + lookAt over `duration` ms.
+async function tween({ fromPos, toPos, fromTarget, toTarget, duration }) {
+  await page.evaluate(({ fromPos, toPos, fromTarget, toTarget, duration }) => {
+    return new Promise((res) => {
+      const c = window.__museum.camera;
+      const start = performance.now();
+      function step(now) {
+        const t = Math.min((now - start) / duration, 1);
+        const e = t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3) / 2;
+        c.position.x = fromPos[0] + (toPos[0] - fromPos[0]) * e;
+        c.position.y = fromPos[1] + (toPos[1] - fromPos[1]) * e;
+        c.position.z = fromPos[2] + (toPos[2] - fromPos[2]) * e;
+        c.lookAt(
+          fromTarget[0] + (toTarget[0] - fromTarget[0]) * e,
+          fromTarget[1] + (toTarget[1] - fromTarget[1]) * e,
+          fromTarget[2] + (toTarget[2] - fromTarget[2]) * e,
+        );
+        if (t < 1) requestAnimationFrame(step);
+        else res();
+      }
+      requestAnimationFrame(step);
+    });
+  }, { fromPos, toPos, fromTarget, toTarget, duration });
+}
+
+await page.goto('http://localhost:8769/?cb=walkthrough');
+await page.waitForTimeout(2000);
+
+await page.evaluate(() => document.getElementById('boot-enter').click());
+await page.waitForTimeout(3500);
+
+// Pan left
+await tween({ fromPos: [0,1.7,9], toPos: [-3.5,1.7,8],
+              fromTarget: [0,2.5,0], toTarget: [0,2.0,0], duration: 2800 });
+await page.waitForTimeout(700);
+
+// Pan across to right
+await tween({ fromPos: [-3.5,1.7,8], toPos: [3.5,1.7,8],
+              fromTarget: [0,2.0,0], toTarget: [0,2.0,0], duration: 3400 });
+await page.waitForTimeout(700);
+
+// Back to center
+await tween({ fromPos: [3.5,1.7,8], toPos: [0,1.7,9],
+              fromTarget: [0,2.0,0], toTarget: [0,2.5,0], duration: 2000 });
+await page.waitForTimeout(600);
+
+// Reader modal
+await page.evaluate(() => document.getElementById('hud-prompt').click());
+await page.waitForTimeout(2600);
+await page.keyboard.press('Escape');
+await page.waitForTimeout(1300);
+
+// Tween to mug
+await tween({ fromPos: [0,1.7,9], toPos: [1.6,1.5,1.9],
+              fromTarget: [0,2.5,0], toTarget: [0.78,1.18,0.95], duration: 2400 });
+await page.waitForTimeout(2200);
+
+const videoPath = await page.video().path();
+await context.close();
+await browser.close();
+await rename(videoPath, resolve(OUT, 'walkthrough.webm'));
+console.log(resolve(OUT, 'walkthrough.webm'));
+```
+
+**Run + convert**:
+
+```bash
+(cd "$PW_HOME" && node capture-walkthrough.mjs)
+
+# Convert to H.264 MP4 for portfolio embedding
+ffmpeg -i /tmp/walkthrough-out/walkthrough.webm \
+  -c:v libx264 -crf 22 -preset slow -pix_fmt yuv420p -movflags +faststart -an \
+  -y /Users/ethan/Projects/Misc-Experiments/NASA-APOD-Showcase-01/media/walkthrough.mp4
+
+trash /tmp/walkthrough-out
+```
+
+Why this path: `playwright-cli`'s `video-start` records at a fixed 800×450 and pads the right with a gray strip — no flag to change it. The Node API exposes `recordVideo.size`, which is the only way to get a usable resolution. The script also lets us add smooth camera tweens (impossible in the chained-eval approach without timing precision).
 
 ## Notes on element refs
 
