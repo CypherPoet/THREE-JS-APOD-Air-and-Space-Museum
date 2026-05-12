@@ -38,17 +38,32 @@ const MANIFEST_PATH = resolve(DATA_DIR, "manifest.json");
 const APOD_URL = "https://apod.nasa.gov/apod/astropix.html";
 const APOD_BASE = "https://apod.nasa.gov/apod/";
 
+function buildApodUrl(dateKey) {
+  // dateKey: YYYY-MM-DD → apod.nasa.gov/apod/apYYMMDD.html
+  const match = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) throw new Error(`APOD_DATE must be YYYY-MM-DD, got "${dateKey}"`);
+  return `${APOD_BASE}ap${match[1].slice(2)}${match[2]}${match[3]}.html`;
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  const overrideDate = process.env.APOD_DATE || args.date;
+  const sourceUrl = overrideDate ? buildApodUrl(overrideDate) : APOD_URL;
 
-  console.log("> fetching APOD…");
+  console.log(`> fetching APOD… (${sourceUrl})`);
   const html = args.from
     ? await readFile(args.from, "utf8")
-    : await fetchText(APOD_URL);
+    : await fetchText(sourceUrl);
 
   console.log("> parsing…");
   const parsed = parseApod(html);
-  const dateKey = parsed.date; // already in YYYY-MM-DD form
+  // When APOD_DATE is set, we know the intended date — trust it over the
+  // parsed value, which can fall back to "today" if the page predates the
+  // current HTML format. The parsed date remains useful as a sanity check.
+  const dateKey = overrideDate || parsed.date;
+  if (overrideDate && parsed.date !== overrideDate) {
+    console.log(`> note: page-internal date "${parsed.date}" — using override "${overrideDate}"`);
+  }
 
   console.log(`> title:  ${parsed.title}`);
   console.log(`> date:   ${dateKey}`);
@@ -69,6 +84,8 @@ async function main() {
 
   const entry = {
     ...parsed,
+    date: dateKey,
+    original_url: sourceUrl,
     image_bytes: finalSize,
     fetched_at: new Date().toISOString(),
   };
@@ -153,9 +170,10 @@ export function parseApod(html) {
 }
 
 function pickTitle(html) {
-  // The title is the first <b> tag inside a centered block after the image.
-  // It looks like: <b> Title text </b>  followed by another <b>Image Credit
-  const match = html.match(/<b>\s*([^<]{4,160}?)\s*<\/b>\s*<br>\s*<b>\s*Image\s*Credit/i);
+  // Modern APOD:   <b> Title </b><br><b>Image Credit ...
+  // 1996-ish:      <b> Title </b><br><b> Credit: ...
+  // Earliest APOD: <b> Title </b><br><b> Picture Credit: ...
+  const match = html.match(/<b>\s*([^<]{4,160}?)\s*<\/b>\s*<br>\s*<b>\s*(?:(?:Image|Picture)\s*)?Credit/i);
   if (match) return tidy(match[1]);
 
   // Fallback: any <b>...</b> followed by <br>
@@ -164,14 +182,27 @@ function pickTitle(html) {
 }
 
 function pickDate(html) {
-  // The date sits on a line like "2026 May 12" between <p> and <br>.
-  const match = html.match(/<p>\s*\n?\s*(\d{4})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})\s*<br>/i);
-  if (!match) return new Date().toISOString().slice(0, 10);
-  const [, y, monthName, d] = match;
   const months = ["January", "February", "March", "April", "May", "June",
                   "July", "August", "September", "October", "November", "December"];
-  const m = String(months.indexOf(monthName) + 1).padStart(2, "0");
-  return `${y}-${m}-${String(d).padStart(2, "0")}`;
+  const monthAlt = months.join("|");
+
+  // Modern APOD: "2026 May 12" between <p> and <br>.
+  const modern = html.match(new RegExp(`<p>\\s*\\n?\\s*(\\d{4})\\s+(${monthAlt})\\s+(\\d{1,2})\\s*<br>`, "i"));
+  if (modern) {
+    const [, y, monthName, d] = modern;
+    const m = String(months.indexOf(monthName) + 1).padStart(2, "0");
+    return `${y}-${m}-${String(d).padStart(2, "0")}`;
+  }
+
+  // Older APOD (pre-2000): "January 15, 1996" between <p> and <br>.
+  const legacy = html.match(new RegExp(`(${monthAlt})\\s+(\\d{1,2}),?\\s+(\\d{4})\\s*<br>`, "i"));
+  if (legacy) {
+    const [, monthName, d, y] = legacy;
+    const m = String(months.indexOf(monthName) + 1).padStart(2, "0");
+    return `${y}-${m}-${String(d).padStart(2, "0")}`;
+  }
+
+  return new Date().toISOString().slice(0, 10);
 }
 
 function pickImage(html) {
@@ -189,8 +220,11 @@ function pickImage(html) {
 }
 
 function pickCredit(html) {
-  // Credit block runs from <b> Image Credit </b> until the closing </center>.
-  const match = html.match(/<b>\s*Image\s*Credit[^<]*<\/b>([\s\S]*?)<\/center>/i);
+  // Credit block runs from <b>(Image|Picture )?Credit</b> until either a
+  // closing </center> (modern format) or a <b>Explanation:</b> (earliest
+  // format, which has no centered credit block). The label's </b> may sit
+  // after a linked "Copyright" anchor, so we lazy-match to the first </b>.
+  const match = html.match(/<b>\s*(?:(?:Image|Picture)\s*)?Credit[\s\S]*?<\/b>([\s\S]*?)(?:<\/center>|<b>\s*Explanation)/i);
   if (!match) return "";
 
   let raw = tidy(stripTags(match[1])).replace(/^&\s*Copyright\s*:?\s*/i, "");
