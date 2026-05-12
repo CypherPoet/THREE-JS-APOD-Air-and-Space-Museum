@@ -75,8 +75,9 @@ No npm install, no build. Just serve the directory:
 git clone git@github.com:CypherPoet/THREE-JS-APOD-Air-and-Space-Museum.git
 cd THREE-JS-APOD-Air-and-Space-Museum
 python3 -m http.server 8767
-open http://localhost:8767/
 ```
+
+Then open <http://localhost:8767/> in your browser.
 
 To refresh today's exhibit while developing:
 
