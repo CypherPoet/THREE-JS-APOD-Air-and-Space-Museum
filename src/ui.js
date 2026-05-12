@@ -21,6 +21,15 @@ export function createUI() {
   const hudPrompt = q("#hud-prompt");
   const hudLock   = q("#hud-lock");
 
+  // Coarse-pointer devices don't have an [E] key; rewrite the prompt as a tap CTA.
+  // Direct style override because .hud__prompt-key has an explicit `display: inline-flex`
+  // in styles.css that beats the [hidden] attribute.
+  if (matchMedia("(pointer: coarse)").matches) {
+    hudPrompt.querySelector(".hud__prompt-key").style.display = "none";
+    hudPrompt.querySelector(".hud__prompt-text").textContent =
+      "Tap to read the curator's note";
+  }
+
   // -------- radio widget --------
   const radioName    = q("#radio-name");
   const radioEra     = q("#radio-era");
