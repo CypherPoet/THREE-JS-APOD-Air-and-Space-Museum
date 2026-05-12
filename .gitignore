@@ -1,8 +1,8 @@
-# Claude config — track by default. Opt specific paths out below as
-# they prove to be machine-specific or otherwise not shareable.
-.claude/handoffs/
-.claude/settings.local.json
+# Claude Code local state
 .claude/projects/
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+.claude/worktrees/
 
 # macOS
 .DS_Store
