@@ -192,20 +192,27 @@ await rename(videoPath, resolve(OUT, 'walkthrough.webm'));
 console.log(resolve(OUT, 'walkthrough.webm'));
 ```
 
-**Run + convert**:
+**Run + convert + bump fps**:
 
 ```bash
 (cd "$PW_HOME" && node capture-walkthrough.mjs)
 
-# Convert to H.264 MP4 for portfolio embedding
+# Convert to H.264 MP4 at 60fps. Playwright records at 25fps (no public
+# API option to change it), so we use ffmpeg's motion-compensated
+# interpolation to synthesize true intermediate frames. The eased camera
+# tweens read much smoother at 60 than at 25.
 ffmpeg -i /tmp/walkthrough-out/walkthrough.webm \
+  -vf "minterpolate=fps=60:mi_mode=mci:mc_mode=aobmc:me_mode=bidir" \
   -c:v libx264 -crf 22 -preset slow -pix_fmt yuv420p -movflags +faststart -an \
   -y /Users/ethan/Projects/Misc-Experiments/NASA-APOD-Showcase-01/media/walkthrough.mp4
 
 trash /tmp/walkthrough-out
 ```
 
-Why this path: `playwright-cli`'s `video-start` records at a fixed 800×450 and pads the right with a gray strip — no flag to change it. The Node API exposes `recordVideo.size`, which is the only way to get a usable resolution. The script also lets us add smooth camera tweens (impossible in the chained-eval approach without timing precision).
+Why this path:
+- `playwright-cli`'s `video-start` records at a fixed 800×450 and pads the right with a gray strip — no flag to change it. The Node API exposes `recordVideo.size`, the only way to get a usable resolution.
+- The Node script also lets us add eased camera tweens (impossible in the chained-eval approach without timing precision).
+- Playwright's video output is locked at 25fps. `minterpolate` with `mci` (motion-compensated interpolation) synthesizes true intermediate frames using bidirectional motion estimation — buttery for the camera pans, no obvious artifacts for the modal open/close transitions in our flow.
 
 ## Notes on element refs
 
