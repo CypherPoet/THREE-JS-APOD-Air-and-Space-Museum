@@ -103,6 +103,8 @@ export function createUI() {
     readerCredit.textContent = apod.credit
       ? `Image · ${apod.credit}`
       : "Image · NASA / APOD";
+    // Drop-cap (.reader__body::first-letter in styles.css) requires the
+    // first character to be a letter; scripts/fetch-apod.mjs tidy() guarantees this.
     readerBody.textContent = apod.explanation;
     readerLink.href = apod.originalUrl;
     reader.hidden = false;
