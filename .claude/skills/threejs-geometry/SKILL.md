@@ -258,6 +258,39 @@ geometry.computeBoundingBox();
 geometry.computeBoundingSphere();
 ```
 
+### Radial displacement gotcha for capped geometries
+
+`CylinderGeometry`, `SphereGeometry`, and `ConeGeometry` include cap center
+vertices at `r ≈ 0`. If you displace vertices radially (e.g., to add flutes,
+spikes, or surface ripples around the lateral axis), you **must skip the pole
+vertices** or you'll collapse the cap to a single point.
+
+```javascript
+// Add vertical flutes to a cylinder shaft.
+function makeFlutedCylinder(rTop, rBottom, height, flutes = 16, depth = 0.018) {
+  const radialSegments = flutes * 6;          // smooth flute curve
+  const geo = new THREE.CylinderGeometry(rTop, rBottom, height, radialSegments, 1);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    const r = Math.hypot(x, z);
+    if (r < 1e-4) continue;                   // skip the cap pole vertices
+    const theta = Math.atan2(z, x);
+    const newR = r - depth * (0.5 - 0.5 * Math.cos(theta * flutes));
+    pos.setX(i, Math.cos(theta) * newR);
+    pos.setZ(i, Math.sin(theta) * newR);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+```
+
+At the rim where the cap meets the side wall, both share vertices at matching
+`θ`. Since they're displaced identically by the formula above, no seam appears.
+Don't forget `computeVertexNormals()` afterwards — without it, lighting is
+calculated against the original undisplaced surface and your detail goes flat.
+
 ### Interleaved Buffers (Advanced)
 
 ```javascript

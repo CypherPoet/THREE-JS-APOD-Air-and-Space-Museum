@@ -316,6 +316,126 @@ float noise(vec2 st) {
 float n = noise(vUv * 10.0 + time);
 ```
 
+### Multi-octave fbm + sharpening curves
+
+Single-octave value noise produces smooth, gummy fields. For organic, nebula-like
+effects, stack 2–3 octaves into an fbm helper, then push the output through a
+narrow `smoothstep` + `pow` curve to isolate bright pockets against a dark base.
+
+```glsl
+float fbm(vec2 p) {
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 3; i++) {
+    v += a * noise(p);
+    p *= 2.03;     // non-integer scaling avoids visible repetition
+    a *= 0.5;
+  }
+  return v;
+}
+
+// Optional: domain warping for less grid-aligned shapes
+float n1 = fbm(uv * 2.8 + drift);
+float n2 = fbm(uv * 5.4 - drift * 1.4 + n1);
+float raw = mix(n1, n2, 0.55);
+
+// Sparse highlights → narrow band + steep power
+float field = smoothstep(0.55, 0.78, raw);
+field = pow(field, 2.5);
+
+// Color ramp: cool → mid → warm at high field values
+vec3 color = mix(coolColor * 0.4, midColor, smoothstep(0.0, 0.4, field));
+color      = mix(color,           warmColor, smoothstep(0.5, 1.0, field));
+```
+
+The two biggest dials for tuning are the `smoothstep` thresholds (tighter band =
+sharper, more isolated peaks; wider band = soft fog) and the `pow` exponent
+(higher = steeper falloff). Expose them as named constants and document each —
+see "Tuning dials for procedural shaders" below.
+
+### Additive overlay disc / mesh
+
+To add atmosphere (haze, glow, drift) over an existing PBR surface without
+modifying its material, layer a transparent mesh hairline-above it and drive it
+with a `ShaderMaterial` configured for additive blending:
+
+```js
+const overlay = new THREE.Mesh(
+  new THREE.CircleGeometry(radius, 128),
+  new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,                // keep depth buffer clean
+    blending: THREE.AdditiveBlending, // zero-alpha regions contribute nothing
+    side: THREE.DoubleSide,
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: /* ... */,
+    fragmentShader: /* ... */,
+  }),
+);
+overlay.rotation.x = -Math.PI / 2;
+overlay.position.y = 0.005;   // hairline above the target surface
+overlay.renderOrder = 1;      // draw after the underlying disc / rim
+parent.add(overlay);
+```
+
+Why these flags:
+- `depthWrite: false` — prevents the transparent overlay from writing depth, so
+  objects above it (props, particles) still composite correctly.
+- `THREE.AdditiveBlending` — the shader's output is *added* to the existing
+  framebuffer, so dark (low-output) regions naturally let the underlying texture
+  read through.
+- `renderOrder = 1` — guarantees the overlay draws after siblings at the same
+  position. Pair with `depthWrite: false` for predictable layering.
+
+This is the cleanest way to A/B-test atmospheric effects without surgery on the
+PBR material underneath.
+
+### `prefers-reduced-motion` via uniform
+
+For any time-animated shader, accept reduced-motion at the uniform level so the
+freeze is a one-line GLSL `mix`, not DOM gymnastics:
+
+```js
+const material = new THREE.ShaderMaterial({
+  uniforms: {
+    uTime: { value: 0 },
+    uReducedMotion: {
+      value: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 1.0 : 0.0,
+    },
+  },
+  fragmentShader: `
+    uniform float uTime;
+    uniform float uReducedMotion;
+    void main() {
+      float t = mix(uTime, 0.0, uReducedMotion);  // freezes when reduce is set
+      // ... drift / pulse / animation built on t
+    }
+  `,
+});
+```
+
+The uniform is read once at construction. If the user toggles the OS setting
+mid-session, a page reload re-reads it — adequate for almost all cases. Make
+this the default for any shader you write that animates with time.
+
+### Tuning dials for procedural shaders
+
+Procedural shaders almost always need iteration. The single biggest accelerator
+is to name every constant and document a small "what each knob does" table near
+the shader's source, so you change one variable at a time and immediately know
+which dimension you're moving along:
+
+| What it controls | Knob | Initial | Range |
+|---|---|---|---|
+| Density of bright peaks | `smoothstep(0.55, 0.78, …)` | 0.55 / 0.78 | tighter band = sharper, wider = softer |
+| Bloom size / count | `fbm(uv * 3.2 + …)` | 3.2 | 2.5 (larger, fewer) – 4.5 (smaller, more) |
+| Falloff steepness | `pow(field, 2.5)` | 2.5 | 1.5 (gentler) – 4.0 (sharper) |
+| Animation speed | `t * 0.012` | 0.012 | halve for stillness, double for motion |
+| Center damping | `smoothstep(0.18, 0.30, radial)` | 0.18 | 0.12–0.28 (wider = larger dark center) |
+
+When the user says "make it a bit sparser" or "a touch slower," you know
+exactly which constant to nudge and by how much — instead of rewriting the
+whole shader.
+
 ### Gradient
 
 ```glsl
