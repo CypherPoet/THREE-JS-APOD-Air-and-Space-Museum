@@ -133,6 +133,47 @@ const material = new THREE.MeshStandardMaterial({
 geometry.setAttribute("uv2", geometry.attributes.uv);
 ```
 
+### Emissive surface vs. actual light source
+
+A material's `emissive` + `emissiveIntensity` makes the mesh *appear* to glow,
+but it does NOT illuminate neighboring surfaces — there's no light energy in
+the scene from emissive alone. For elements that need to both glow visibly AND
+cast a pool of light on the floor near them (LED markers, baseboard accents,
+glowing buttons), pair the emissive mesh with a co-located `PointLight` whose
+`distance` and `decay` keep the spill local:
+
+```javascript
+// A small amber LED marker that's both visible AND lights the floor nearby.
+const dot = new THREE.Mesh(
+  new THREE.SphereGeometry(0.05, 12, 8),
+  new THREE.MeshStandardMaterial({
+    color: 0xf0a06a,
+    emissive: 0xe8743b,
+    emissiveIntensity: 0.85,
+    roughness: 0.4,
+    metalness: 0.0,
+  }),
+);
+dot.position.set(x, 0.04, z);
+scene.add(dot);
+
+// Tight, local pool — small distance + high decay keeps it from leaking far.
+const lamp = new THREE.PointLight(0xe8743b, 0.32, 2.6, 2.6);
+lamp.position.set(x, 0.18, z);
+scene.add(lamp);
+```
+
+Two common mistakes:
+- **Emissive only** — the dot is bright but the floor under it stays dark; the
+  marker reads as a floating decal rather than a light source.
+- **PointLight only** — the floor lights up but there's no visible source; the
+  pool appears to come from nowhere.
+
+For a tight effect, also consider that `PointLight` count adds shader cost
+linearly. ~16–20 small lights is fine; if you need more (a long strip of
+markers), use a single wider light or bake the spill into a texture/shader
+overlay. See `threejs-lighting` for the full `PointLight` knob reference.
+
 ## MeshPhysicalMaterial (Advanced PBR)
 
 Extends MeshStandardMaterial with advanced features.
